@@ -1,5 +1,4 @@
 from typing import Dict, List
-import numpy as np
 
 def calculate_similarity(list1: List, list2: List) -> float:
     """Jaccard similarity: (Intersection / Union) * 100."""
@@ -30,7 +29,7 @@ def compare_interests_logic(user1_data: Dict, user2_data: Dict) -> Dict:
         'video_genres': calculate_similarity(user1_data.get('video_genres', []), user2_data.get('video_genres', [])),
         'music_listened': calculate_similarity(u1_music, u2_music),
     }
-    overall = float(np.mean(list(component_scores.values()))) if component_scores else 0.0
+    overall = (sum(component_scores.values()) / len(component_scores)) if component_scores else 0.0
     scores = {**component_scores, 'overall': overall}
 
     def get_common_details(titles: set, data1: List[Dict], data2: List[Dict]) -> List[Dict]:
