@@ -8,9 +8,10 @@ Compare your YouTube taste with friends and discover your compatibility score in
 
 ## ⚡ Infrastructure Highlights
 
-- **Optimized Build Pipeline:** Migrated frontend Docker builds to use the `oven/bun` runtime, reducing dependency resolution times to ~2 seconds.
-- **Automated CI/CD:** Continuous integration via GitHub Actions triggers automated, zero-downtime hot-swaps on our DigitalOcean droplet.
-- **Smart BuildKit Caching:** Implemented advanced Docker layer caching and `--mount=type=cache` for Python packages, cutting average deployment times by 60%.
+- **Vercel Serverless Architecture:** Fully migrated to Vercel for instant deployments, utilizing global edge networks for the frontend and serverless Python functions for the backend.
+- **Vite + React Frontend:** Lightning-fast static frontend built with Vite, ensuring rapid load times and optimal asset delivery.
+- **FastAPI Backend:** High-performance Python backend exposed seamlessly via Vercel's `/api` routing.
+- **Zero-Config Deployment:** A single `vercel.json` manages both the Vite frontend build process and the Python backend environment natively.
 - **Scalable Vector Graphics:** All branding assets are written in pure SVG for perfect mathematical scaling and zero overhead.
 
 ---
@@ -31,11 +32,10 @@ Blend allows users to:
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | FastAPI + MongoDB |
-| Frontend | React + TypeScript + Tailwind CSS |
+| Backend | FastAPI + MongoDB (Python) |
+| Frontend | React + TypeScript + Vite + Tailwind CSS |
 | Auth | Google OAuth 2.0 |
-| Hosting | DigitalOcean (Docker Compose) |
-| CI/CD | GitHub Actions • Automated SSH Deployments |
+| Hosting | Vercel (Static Frontend + Serverless Functions) |
 
 ---
 
@@ -43,23 +43,19 @@ Blend allows users to:
 
 ```
 youtube-blend/
-├── .github/workflows/       # GitHub Actions CI/CD pipeline
+├── api/
+│   └── index.py             # Vercel Serverless Entry Point (Python)
 ├── backend/
 │   ├── main.py              # FastAPI app & OAuth routes
-│   ├── services/
-│   │   ├── youtube.py       # YouTube API integration
-│   │   └── comparison.py    # Jaccard similarity algorithm
-│   ├── Dockerfile           # Optimized with BuildKit caching
-│   └── requirements.txt
-│
+│   └── services/
+│       ├── youtube.py       # YouTube API integration
+│       └── comparison.py    # Jaccard similarity algorithm
 ├── frontend/
 │   ├── src/pages/           # Landing, Dashboard, Compare pages
-│   ├── src/components/      # UI components (shadcn/ui)
-│   ├── Dockerfile           # Multi-stage Bun build
-│   └── package.json
-│
-├── deploy.sh                # Smart zero-downtime deploy script
-
+│   ├── src/components/      # UI components
+│   └── package.json         # React dependencies
+├── vercel.json              # Vercel Deployment Configuration
+├── requirements.txt         # Python dependencies
 └── README.md
 ```
 
@@ -102,10 +98,10 @@ Score = (2 / 4) × 100 = 50%
 
 ### Backend
 ```bash
-cd backend
+# Navigate to project root
 pip install -r requirements.txt
 
-# Set environment variables
+# Set environment variables in .env (see .env.vercel for required keys)
 export MONGO_URI=your_mongodb_uri
 export GOOGLE_CLIENT_ID=your_client_id
 export GOOGLE_CLIENT_SECRET=your_client_secret
@@ -113,39 +109,38 @@ export JWT_SECRET=$(openssl rand -base64 32)
 export DEPLOYED_DOMAIN=http://localhost:8000
 export FRONTEND_URL=http://localhost:5173
 
+# Run FastAPI Server
+cd backend
 python -m uvicorn main:app --reload
 ```
 
-### Frontend (Using Bun)
+### Frontend
 ```bash
+# Navigate to frontend folder
 cd frontend
-bun install
+npm install
+
+# Run Vite Dev Server
 export VITE_API_URL=http://localhost:8000
-bun run dev
+npm run dev
 ```
 
 ---
 
-## Production Deployment (DigitalOcean)
+## Production Deployment (Vercel)
 
-Both frontend and backend run natively on a DigitalOcean Docker droplet. Caddy acts as a reverse-proxy to attach the custom domain and handle SSL.
+Both the frontend and backend run natively on Vercel. 
 
 #### Step 1: Push to GitHub
-Simply merge your code to the `main` branch. 
+Simply push your code to the `main` branch. 
 
-#### Step 2: GitHub Actions Takes Over
-Our configured `.github/workflows/deploy.yml` will automatically:
-1. SSH into the DigitalOcean droplet.
-2. Run `./deploy.sh`.
-3. Pull the latest code and intelligently determine which containers need rebuilding.
-4. Hot-swap the containers with zero downtime.
+#### Step 2: Vercel Takes Over
+Vercel will automatically detect the configuration in `vercel.json`:
+1. It builds the Vite React frontend into static assets.
+2. It detects the `requirements.txt` at the root and deploys `api/index.py` as a Python Serverless Function.
+3. It routes all `/api/*` traffic seamlessly to the FastAPI backend.
 
-#### Useful Docker Commands (on the server)
-```bash
-docker compose logs -f            # Live logs (all services)
-docker compose restart            # Restart all services
-docker compose build --no-cache   # Force a complete rebuild
-```
+Ensure you have copied the variables from `.env.vercel` into your Vercel project's **Environment Variables** dashboard.
 
 ---
 
