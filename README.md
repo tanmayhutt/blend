@@ -142,6 +142,15 @@ Vercel will automatically detect the configuration in `vercel.json`:
 
 Ensure you have copied the variables from `.env.vercel` into your Vercel project's **Environment Variables** dashboard.
 
+#### Step 3: Prevent Cold Starts (Keep-Alive)
+Because Vercel uses AWS Lambda for the backend, idle functions are put to sleep after 5-15 minutes of inactivity. To prevent the 2-3 second "cold start" delay for your users, you should set up a free uptime monitor.
+
+1. Create a free account on [cron-job.org](https://cron-job.org/).
+2. Create a new cronjob pointing to your base API URL: `https://your-domain.com/api/`
+3. Set the schedule to **Every 5 minutes**.
+
+*(Since this endpoint just returns a simple JSON message and does no database processing, it uses a microscopic fraction of Vercel's generous free Hobby tier limits).*
+
 ---
 
 ## Known Limitations
