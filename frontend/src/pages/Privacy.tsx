@@ -5,7 +5,7 @@ import { Logo } from "@/components/Logo";
 
 const Privacy = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell min-h-screen bg-background bg-halftone">
       <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
@@ -23,10 +23,10 @@ const Privacy = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="prose prose-slate dark:prose-invert max-w-none">
+      <main className="container mx-auto px-4 py-16 max-w-4xl">
+        <div className="prose prose-slate max-w-none rounded-[2rem] border border-border bg-card p-6 shadow-soft sm:p-12">
           <h1>Privacy Policy</h1>
-          <p className="text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
+          <p className="text-muted-foreground">Last updated: August 11, 2026</p>
 
           <section>
             <h2>1. Information We Collect</h2>
@@ -114,4 +114,3 @@ const Privacy = () => {
 };
 
 export default Privacy;
-

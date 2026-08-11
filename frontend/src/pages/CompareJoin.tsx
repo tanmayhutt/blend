@@ -28,8 +28,8 @@ const CompareJoin = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md">
+      <div className="app-shell min-h-screen bg-background bg-halftone flex items-center justify-center px-4">
+        <div className="app-loading-card space-y-4">
           <Youtube className="w-16 h-16 text-destructive mx-auto" />
           <h1 className="text-2xl font-bold">Invalid Link</h1>
           <p className="text-muted-foreground text-sm">{error}</p>
@@ -40,8 +40,8 @@ const CompareJoin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4 max-w-md">
+    <div className="app-shell min-h-screen bg-background bg-halftone flex items-center justify-center px-4">
+      <div className="app-loading-card space-y-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
         <div>
           <p className="text-lg font-medium text-foreground mb-2">Setting things up...</p>

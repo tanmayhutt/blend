@@ -38,8 +38,8 @@ export const Logo = ({ className = "", size = 32 }: LogoProps) => {
   return (
     <img
       src={logoPath}
-      alt="Blend Logo"
-      className={cn("drop-shadow-[0_0_2px_rgba(0,0,0,1)]", className)}
+      alt="YouTube Blend"
+      className={cn("", className)}
       onError={handleError}
       style={{ 
         width: sizeStyle,
@@ -52,4 +52,3 @@ export const Logo = ({ className = "", size = 32 }: LogoProps) => {
     />
   );
 };
-

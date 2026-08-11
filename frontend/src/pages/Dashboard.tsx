@@ -19,7 +19,6 @@ import { MusicShowcase } from "@/components/MusicShowcase";
 import { Youtube, Link as LinkIcon, LogOut, Loader2, Copy, Check, TrendingUp, Video, Music, List, ChevronDown, RefreshCw, Users, Disc3, Settings } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
-import { Marquee } from "@/components/Marquee";
 import { Circle, Squiggle, Star, Pill } from "@/components/Geometry";
 import { authClient, clearTokens, isAuthenticated, saveTokens } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -292,7 +291,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background bg-halftone relative overflow-hidden">
+    <div className="app-shell min-h-screen bg-background bg-halftone relative overflow-hidden">
       {/* Header */}
       <header className="border-b-[4px] border-border bg-card relative z-50 shadow-[var(--shadow-card)]">
         <div className="container mx-auto px-4 py-4">
@@ -366,9 +365,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <Marquee text="DASHBOARD • ANALYZE YOUR TASTE" className="bg-primary text-primary-foreground py-3 border-y-[4px] border-border w-[105%] -ml-[2.5%] mt-4 shadow-[var(--shadow-card)]" />
-
-      <main className="container mx-auto px-4 py-12 relative z-10">
+      <main className="container mx-auto px-4 py-16 relative z-10">
         <Star className="top-10 right-10 text-background hidden md:block z-0" />
         <Circle className="bottom-40 left-10 hidden lg:block z-0" />
 
@@ -482,8 +479,6 @@ const Dashboard = () => {
             </div>
           </div>
         )}
-
-        <Marquee text="EXPLORE YOUR DATA • ANALYZE" className="bg-primary text-primary-foreground py-2 border-y-[4px] border-border w-[105%] -ml-[2.5%] my-12 shadow-[var(--shadow-card)]" />
 
         {/* Full-Width Navbar-Style Sections */}
         {userData && (

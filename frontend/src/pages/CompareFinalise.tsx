@@ -13,7 +13,6 @@ import { MusicShowcase } from "@/components/MusicShowcase";
 import { Youtube, TrendingUp, Music, Video, Home, Loader2, List, ChevronDown } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
-import { Marquee } from "@/components/Marquee";
 import { Circle, Squiggle, Star, Pill } from "@/components/Geometry";
 import { authClient, saveTokens, clearTokens, isAuthenticated } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -275,7 +274,7 @@ const CompareFinalise = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-background bg-halftone relative overflow-hidden">
+    <div className="app-shell min-h-screen bg-background bg-halftone relative overflow-hidden">
       {/* Header */}
       <header className="border-b-[4px] border-border bg-card relative z-50 shadow-[var(--shadow-card)]">
         <div className="container mx-auto px-4 py-4">
@@ -314,9 +313,7 @@ const CompareFinalise = () => {
         </div>
       </header>
 
-      <Marquee text="BLEND YOUR TASTE • DISCOVER YOUR MATCH" className="bg-primary text-primary-foreground py-3 border-y-[4px] border-border w-[105%] -ml-[2.5%] mt-4 shadow-[var(--shadow-card)] relative z-20" />
-
-      <main className="container mx-auto px-4 py-12 relative z-10">
+      <main className="container mx-auto px-4 py-16 relative z-10">
         <Star className="top-20 left-10 text-background hidden md:block z-0" />
         <Circle className="bottom-40 right-10 hidden lg:block z-0" />
         
