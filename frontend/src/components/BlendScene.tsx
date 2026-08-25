@@ -26,30 +26,32 @@ export const BlendScene = ({ className = "" }: BlendSceneProps) => {
     const group = new THREE.Group();
     scene.add(group);
 
-    const redGeometry = new THREE.IcosahedronGeometry(1.45, 5);
-    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xff2d2d, roughness: 0.2, metalness: 0.08 });
+    const redGeometry = new THREE.TorusKnotGeometry(1.15, 0.38, 180, 24, 2, 3);
+    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xd9ff3f, roughness: 0.24, metalness: 0.06 });
     const redOrb = new THREE.Mesh(redGeometry, redMaterial);
-    redOrb.position.x = -0.72;
+    redOrb.position.x = -0.52;
+    redOrb.scale.setScalar(1.08);
     group.add(redOrb);
 
-    const inkGeometry = new THREE.IcosahedronGeometry(1.25, 4);
-    const inkMaterial = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.32, metalness: 0.12 });
+    const inkGeometry = new THREE.TorusKnotGeometry(1.05, 0.32, 160, 22, 3, 2);
+    const inkMaterial = new THREE.MeshStandardMaterial({ color: 0x8864ff, roughness: 0.28, metalness: 0.08 });
     const inkOrb = new THREE.Mesh(inkGeometry, inkMaterial);
-    inkOrb.position.x = 0.82;
+    inkOrb.position.x = 0.58;
+    inkOrb.rotation.x = 0.9;
     group.add(inkOrb);
 
     const ringGeometry = new THREE.TorusGeometry(1.9, 0.025, 12, 180);
-    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x171717, transparent: true, opacity: 0.18 });
+    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x090909, transparent: true, opacity: 0.32 });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     ring.rotation.x = 1.2;
     ring.rotation.y = 0.38;
     group.add(ring);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, 3.4));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xf04a3c, 3.4));
     const key = new THREE.DirectionalLight(0xffffff, 4.5);
     key.position.set(3, 5, 5);
     scene.add(key);
-    const rim = new THREE.PointLight(0xff463f, 16, 16);
+    const rim = new THREE.PointLight(0xff9ac5, 18, 16);
     rim.position.set(-4, -2, 3);
     scene.add(rim);
 

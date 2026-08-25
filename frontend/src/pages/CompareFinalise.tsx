@@ -310,7 +310,7 @@ const CompareFinalise = () => {
                   score={comparisonData.scores.overall}
                 />
                 <div>
-                  <p className="section-kicker">Your result</p>
+                  <p className="section-kicker">Your YouTube story</p>
                   <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-black leading-[.95] tracking-[-.055em] text-foreground sm:text-6xl">
                     {matchMessage.text}
                   </h1>
@@ -321,6 +321,24 @@ const CompareFinalise = () => {
               </div>
             </section>
           )}
+
+          <section className="comparison-story-cards" aria-label="Comparison highlights">
+            <div className="comparison-story-card story-card-lime">
+              <span>Shared obsession</span>
+              <strong>{comparisonData.common_subscriptions?.length || 0}</strong>
+              <p>channels found their way into both feeds</p>
+            </div>
+            <div className="comparison-story-card story-card-pink">
+              <span>Same soundtrack</span>
+              <strong>{comparisonData.common_music_listened?.length || 0}</strong>
+              <p>music picks survived both algorithms</p>
+            </div>
+            <div className="comparison-story-card story-card-yellow">
+              <span>Saved by both</span>
+              <strong>{comparisonData.common_saved_videos?.length || 0}</strong>
+              <p>videos earned a place on both lists</p>
+            </div>
+          </section>
 
           {/* Detailed Results Tabs */}
           <Tabs defaultValue="scores" className="w-full">
@@ -353,8 +371,8 @@ const CompareFinalise = () => {
 
             <TabsContent value="scores" className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Score Breakdown</h2>
-                <p className="text-sm text-muted-foreground mb-4">See how well you match across different YouTube categories and interests.</p>
+                <h2 className="mb-2 text-4xl font-black tracking-[-.06em] text-foreground">How the story adds up</h2>
+                <p className="mb-4 text-sm text-muted-foreground">The overall score, unpacked without making it feel like homework.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.entries(comparisonData.scores).map(([key, value]: [string, any]) => (
@@ -365,8 +383,8 @@ const CompareFinalise = () => {
 
             <TabsContent value="common" className="space-y-8">
               <div className="mb-6">
-                <h2 className="text-3xl font-bold text-foreground mb-2">What You Both Love</h2>
-                <p className="text-muted-foreground">The intersection of your YouTube universes—these are the gems you share together.</p>
+                <h2 className="mb-2 text-4xl font-black tracking-[-.06em] text-foreground">The shared obsession</h2>
+                <p className="text-muted-foreground">The exact part of YouTube where both of your universes keep meeting.</p>
               </div>
 
               {(comparisonData.common_subscriptions?.length > 0 ||
