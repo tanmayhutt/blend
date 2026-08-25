@@ -24,7 +24,7 @@ const Privacy = () => {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-16 lg:py-24">
-        <div className="legal-shell prose prose-invert max-w-none border-t border-border pt-10">
+        <div className="legal-shell prose max-w-none border-t border-border pt-10">
           <h1>Privacy Policy</h1>
           <p className="text-muted-foreground">Last updated: August 11, 2026</p>
 
