@@ -24,22 +24,22 @@ export const VideoCard = ({ title, thumbnailUrl, videoId, playlistId, channelId 
 
   return (
     <Card
-      className="group overflow-hidden cursor-pointer transition-all duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+      className="group cursor-pointer overflow-hidden border-border/80 bg-card shadow-none transition-all duration-200 hover:-translate-y-1 hover:border-primary/40"
       onClick={openYouTubeLink}
     >
-      <div className="relative aspect-video overflow-hidden bg-secondary border-b-[3px] border-border">
+      <div className="relative aspect-video overflow-hidden bg-secondary">
         <img
           src={thumbnailUrl || "https://via.placeholder.com/320x180?text=No+Thumbnail"}
           alt={title}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-primary/20 transition-all duration-200 flex items-center justify-center">
-          <Play className="w-12 h-12 text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/35">
+          <span className="grid h-11 w-11 scale-90 place-items-center rounded-full bg-primary text-white opacity-0 shadow-lg transition-all group-hover:scale-100 group-hover:opacity-100"><Play className="h-4 w-4 fill-current" /></span>
         </div>
       </div>
-      <div className="p-3 bg-background">
-        <p className="text-sm font-black text-foreground line-clamp-2 uppercase tracking-tight">
+      <div className="border-t border-border/70 bg-card p-3.5">
+        <p className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
           {title}
         </p>
       </div>

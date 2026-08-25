@@ -23,12 +23,12 @@ export const CompatibilityAvatars = ({ viewerProfile, otherProfile, score, class
   const getInitial = (name: string) => name ? name.charAt(0).toUpperCase() : "?";
 
   return (
-    <div className={cn("relative flex justify-center items-center h-40 overflow-hidden", className)}>
+    <div className={cn("relative flex h-36 items-center justify-center overflow-hidden", className)}>
       {/* Viewer Avatar (Slides in from Left) */}
       <div 
         className={cn(
-          "absolute transition-all duration-700 ease-out z-10 w-24 h-24 rounded-full border-[4px] border-border bg-card shadow-[4px_4px_0_0_#000] flex items-center justify-center overflow-hidden",
-          animate ? "translate-x-[-30px]" : "translate-x-[-150px] opacity-0"
+          "absolute z-10 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[6px] border-background bg-secondary shadow-2xl transition-all duration-700 ease-out",
+          animate ? "translate-x-[-40px]" : "translate-x-[-150px] opacity-0"
         )}
       >
         {viewerProfile?.picture ? (
@@ -41,7 +41,7 @@ export const CompatibilityAvatars = ({ viewerProfile, otherProfile, score, class
       {/* Score Badge (Fades in Center) */}
       <div 
         className={cn(
-          "absolute transition-all duration-1000 delay-300 ease-in-out z-30 flex items-center justify-center w-16 h-16 rounded-full border-[3px] border-border bg-primary text-primary-foreground shadow-[var(--shadow-button)]",
+          "absolute z-30 flex h-16 w-16 items-center justify-center rounded-full border-[6px] border-background bg-primary text-primary-foreground shadow-xl transition-all delay-300 duration-1000 ease-in-out",
           animate ? "opacity-100 scale-100" : "opacity-0 scale-50"
         )}
       >
@@ -51,8 +51,8 @@ export const CompatibilityAvatars = ({ viewerProfile, otherProfile, score, class
       {/* Other Avatar (Slides in from Right) */}
       <div 
         className={cn(
-          "absolute transition-all duration-700 ease-out z-20 w-24 h-24 rounded-full border-[4px] border-border bg-card shadow-[4px_4px_0_0_#000] flex items-center justify-center overflow-hidden mix-blend-normal",
-          animate ? "translate-x-[30px]" : "translate-x-[150px] opacity-0"
+          "absolute z-20 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[6px] border-background bg-secondary shadow-2xl transition-all duration-700 ease-out",
+          animate ? "translate-x-[40px]" : "translate-x-[150px] opacity-0"
         )}
       >
         {otherProfile?.picture ? (

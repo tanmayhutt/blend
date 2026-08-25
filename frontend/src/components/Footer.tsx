@@ -6,12 +6,12 @@ export const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border/70 bg-card">
+    <footer className="border-t border-border bg-[#0c0c0f]">
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         <div className="flex flex-col justify-between gap-8 md:flex-row md:items-start">
           <div className="max-w-sm">
             <div className="flex items-center gap-3 font-extrabold tracking-[-0.03em]"><span className="logo-frame"><Logo size={28} /></span>YouTube Blend</div>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">A small social experiment for comparing the YouTube rabbit holes that make you, you.</p>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">A private way to compare the feeds that shape what you watch.</p>
           </div>
           <div className="grid grid-cols-2 gap-x-12 gap-y-3 text-sm font-semibold">
             <Link to="/" className="text-muted-foreground hover:text-foreground">Home</Link>

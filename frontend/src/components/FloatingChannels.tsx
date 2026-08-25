@@ -22,23 +22,11 @@ export const FloatingChannels = ({ channels, title }: FloatingChannelsProps) => 
   return (
     <div className="space-y-4">
       {title ? <h3 className="text-lg font-semibold text-foreground">{title}</h3> : null}
-      <style>{`
-        @keyframes fadeInScale {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .channel-item {
-          animation: fadeInScale 0.5s ease-out forwards;
-        }
-      `}</style>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visibleChannels.map((channel: any, index: number) => (
           <div
             key={index}
-            className="channel-item transition-all duration-200 hover:translate-x-[2px] hover:translate-y-[2px]"
-            style={{
-              animationDelay: `${index * 0.05}s`,
-            }}
+            className="min-w-0"
           >
             <ChannelCard title={channel.title} logoUrl={channel.logo_url} channelId={channel.channel_id} />
           </div>

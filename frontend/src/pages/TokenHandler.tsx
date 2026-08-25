@@ -36,10 +36,11 @@ const TokenHandler = () => {
 
   if (hasAuthParams) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex items-center gap-3 text-foreground">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          <p className="text-base text-muted-foreground">Finalizing login…</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="app-loading-card">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <h1 className="mt-5 text-xl font-extrabold">Opening your watchroom</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Finalizing sign-in.</p>
         </div>
       </div>
     );

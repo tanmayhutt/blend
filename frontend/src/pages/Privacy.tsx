@@ -5,9 +5,9 @@ import { Logo } from "@/components/Logo";
 
 const Privacy = () => {
   return (
-    <div className="app-shell min-h-screen bg-background bg-halftone">
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+    <div className="app-shell min-h-screen bg-background">
+      <header className="site-header">
+        <div className="mx-auto max-w-5xl px-5 py-4">
           <div className="flex items-center gap-4">
             <Link to="/">
               <Button variant="ghost" size="sm" className="gap-2">
@@ -17,14 +17,14 @@ const Privacy = () => {
             </Link>
             <div className="flex items-center gap-3">
               <Logo size={32} className="rounded-lg" />
-              <h1 className="text-2xl font-bold">Privacy Policy</h1>
+              <span className="text-sm font-bold">Privacy</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-16 max-w-4xl">
-        <div className="prose prose-slate max-w-none rounded-[2rem] border border-border bg-card p-6 shadow-soft sm:p-12">
+      <main className="mx-auto max-w-5xl px-5 py-16 lg:py-24">
+        <div className="legal-shell prose prose-invert max-w-none border-t border-border pt-10">
           <h1>Privacy Policy</h1>
           <p className="text-muted-foreground">Last updated: August 11, 2026</p>
 

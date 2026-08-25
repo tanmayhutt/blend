@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, AlertCircle } from "lucide-react";
 import { saveTokens } from "@/lib/auth";
 import axios from "axios";
+import { Button } from "@/components/ui/button";
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -64,19 +65,12 @@ const AuthComplete = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-center px-6 max-w-md">
-          <div className="w-14 h-14 rounded-lg bg-destructive/10 flex items-center justify-center">
-            <AlertCircle className="w-7 h-7 text-destructive" />
-          </div>
-          <h1 className="text-xl font-semibold text-foreground">Authentication Error</h1>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="app-loading-card">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-destructive/10"><AlertCircle className="h-6 w-6 text-destructive" /></div>
+          <h1 className="mt-5 text-xl font-extrabold text-foreground">Sign-in could not finish</h1>
           <p className="text-sm text-muted-foreground">{error}</p>
-          <button
-            onClick={() => navigate("/")}
-            className="mt-4 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
-          >
-            Return to Home
-          </button>
+          <Button onClick={() => navigate("/")} className="mt-5">Return home</Button>
         </div>
       </div>
     );
@@ -84,10 +78,11 @@ const AuthComplete = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Completing sign-in...</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="app-loading-card">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <h1 className="mt-5 text-xl font-extrabold">Opening your watchroom</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Completing sign-in.</p>
         </div>
       </div>
     );

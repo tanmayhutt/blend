@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,14 +10,12 @@ import { VideoCard } from "@/components/VideoCard";
 import { Badge } from "@/components/ui/badge";
 import { FloatingChannels } from "@/components/FloatingChannels";
 import { MusicShowcase } from "@/components/MusicShowcase";
-import { Youtube, TrendingUp, Music, Video, Home, Loader2, List, ChevronDown } from "lucide-react";
+import { Youtube, TrendingUp, Music, Video, Home, Loader2, List, RefreshCw } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Footer } from "@/components/Footer";
-import { Circle, Squiggle, Star, Pill } from "@/components/Geometry";
-import { authClient, saveTokens, clearTokens, isAuthenticated } from "@/lib/auth";
+import { authClient, clearTokens, isAuthenticated } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { formatRelativeTime } from "@/lib/utils";
-import confetti from "canvas-confetti";
 
 const DataGrid = ({
   viewerData,
@@ -30,9 +28,9 @@ const DataGrid = ({
 }: any) => {
   if (!viewerData?.length && !otherData?.length) {
     return (
-      <Card className="p-12 text-center bg-card border-[3px] border-border shadow-[var(--shadow-card)]">
-        <EmptyIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-        <p className="text-sm font-bold text-muted-foreground uppercase">{emptyText}</p>
+      <Card className="border-border bg-card p-12 text-center shadow-none">
+        <EmptyIcon className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+        <p className="text-sm font-bold text-muted-foreground">{emptyText}</p>
       </Card>
     );
   }
@@ -41,16 +39,16 @@ const DataGrid = ({
     <div className="space-y-8">
       {viewerData?.length > 0 && (
         <div>
-          <h3 className="text-xl font-black text-foreground mb-4 uppercase">{viewerLabel} ({viewerData.length})</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <h3 className="mb-4 text-xl font-extrabold tracking-[-.025em] text-foreground">{viewerLabel} <span className="text-muted-foreground">{viewerData.length}</span></h3>
+          <div className="content-grid">
             {viewerData.map(renderItem)}
           </div>
         </div>
       )}
       {otherData?.length > 0 && (
         <div>
-          <h3 className="text-xl font-black text-foreground mb-4 uppercase">{otherLabel} ({otherData.length})</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <h3 className="mb-4 text-xl font-extrabold tracking-[-.025em] text-foreground">{otherLabel} <span className="text-muted-foreground">{otherData.length}</span></h3>
+          <div className="content-grid">
             {otherData.map(renderItem)}
           </div>
         </div>
@@ -61,7 +59,6 @@ const DataGrid = ({
 
 const CompareFinalise = () => {
   const { id } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -90,15 +87,6 @@ const CompareFinalise = () => {
         setComparisonStatus("completed");
         setStatusMessage(null);
         
-        // Massive confetti burst for seeing results!
-        setTimeout(() => {
-          confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: { y: 0.5 },
-            colors: ['#FF0000', '#000000', '#FFFFFF']
-          });
-        }, 500);
       } else if (response.data?.status) {
         setComparisonData(null);
         setComparisonStatus(response.data.status);
@@ -177,29 +165,24 @@ const CompareFinalise = () => {
 
   const getMatchMessage = (score: number) => {
     if (score >= 80) return {
-      text: "Exceptional Compatibility",
-      desc: "Your YouTube viewing habits and musical tastes are highly aligned, indicating nearly identical content preferences.",
-      emoji: ""
+      text: "Same frequency",
+      desc: "Your feeds overlap strongly across channels, saved videos, music, and recurring interests."
     };
     if (score >= 60) return {
-      text: "Strong Alignment",
-      desc: "You share a significant amount of common ground across multiple categories and genres.",
-      emoji: ""
+      text: "Strong signal",
+      desc: "You share meaningful common ground across several parts of your YouTube taste."
     };
     if (score >= 40) return {
-      text: "Moderate Overlap",
-      desc: "While you have distinct preferences, there is a measurable intersection in your content libraries.",
-      emoji: ""
+      text: "Interesting overlap",
+      desc: "Your feeds are distinct, but they meet in enough places to create a real shared lane."
     };
     if (score >= 20) return {
-      text: "Diverse Tastes",
-      desc: "Your profiles indicate largely different consumption habits with occasional overlapping interests.",
-      emoji: ""
+      text: "Different lanes",
+      desc: "Your feeds mostly travel in different directions, with a few useful points of connection."
     };
     return {
-      text: "Distinct Profiles",
-      desc: "Your viewing habits and musical tastes belong to completely different analytical clusters.",
-      emoji: ""
+      text: "Opposite feeds",
+      desc: "You have very different viewing habits, which makes this a good map for trading recommendations."
     };
   };
 
@@ -213,33 +196,23 @@ const CompareFinalise = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-          <div>
-            <p className="text-lg font-medium text-foreground mb-2">Analyzing your YouTube libraries...</p>
-            <p className="text-sm text-muted-foreground">This can take a few seconds as we compare your subscriptions, videos, and music taste across both accounts.</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageState icon={Loader2} title="Comparing both feeds" text="Reading channels, saved videos, music, and interests." spin />;
   }
 
   if (comparisonStatus === "pending" && !comparisonData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md">
-          <Youtube className="w-16 h-16 text-muted-foreground mx-auto" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="app-loading-card space-y-4">
+          <Youtube className="mx-auto h-9 w-9 text-primary" />
           <h1 className="text-2xl font-bold">Waiting for the other user</h1>
           <p className="text-muted-foreground">{statusMessage || "They need to finish Google login for this link."}</p>
           <div className="space-y-3">
             <div className="flex gap-2">
-              <input
+              <input aria-label="Comparison invite link"
                 type="text"
                 value={comparisonLink}
                 readOnly
-                className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-xs"
+                className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs"
               />
               <Button onClick={handleCopyLink} variant="outline" size="sm">
                 {copiedLink ? "Copied" : "Copy"}
@@ -256,9 +229,9 @@ const CompareFinalise = () => {
 
   if (error || !comparisonData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md">
-          <Youtube className="w-16 h-16 text-destructive mx-auto" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="app-loading-card space-y-4">
+          <Youtube className="mx-auto h-9 w-9 text-destructive" />
           <h1 className="text-2xl font-bold">Something Went Wrong</h1>
           <p className="text-muted-foreground">{error || "Could not load comparison"}</p>
           <Button onClick={() => navigate("/")} className="mt-4">
@@ -274,24 +247,23 @@ const CompareFinalise = () => {
     : null;
 
   return (
-    <div className="app-shell min-h-screen bg-background bg-halftone relative overflow-hidden">
-      {/* Header */}
-      <header className="border-b-[4px] border-border bg-card relative z-50 shadow-[var(--shadow-card)]">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Logo size={28} className="rounded" />
-              <h1 className="text-lg font-semibold tracking-tight text-foreground/90 hidden sm:block">Comparison Analysis</h1>
-            </div>
+    <div className="app-shell min-h-screen bg-background">
+      <a href="#comparison-content" className="skip-link">Skip to comparison</a>
+      <header className="workspace-header sticky top-0 z-50">
+        <div className="mx-auto flex max-w-[92rem] items-center justify-between px-5 py-4 lg:px-10">
+            <button onClick={handleBackToDashboard} className="flex items-center gap-3" aria-label="Back to dashboard">
+              <span className="logo-frame"><Logo size={27} /></span>
+              <span className="hidden text-sm font-extrabold sm:block">Comparison</span>
+            </button>
             
             <div className="flex items-center gap-4">
               {comparisonMeta && (
-                <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+                <div className="hidden items-center gap-3 text-xs text-muted-foreground md:flex">
                   <div className="flex items-center gap-1.5">
                     <span className="opacity-60">You:</span>
                     <span className="font-medium text-foreground/80">{formatRelativeTime(comparisonMeta.viewer?.last_synced_at)}</span>
                   </div>
-                  <div className="w-px h-3 bg-white/20"></div>
+                  <div className="h-3 w-px bg-border"></div>
                   <div className="flex items-center gap-1.5">
                     <span className="opacity-60">Them:</span>
                     <span className="font-medium text-foreground/80">{formatRelativeTime(comparisonMeta.other?.last_synced_at)}</span>
@@ -300,63 +272,59 @@ const CompareFinalise = () => {
               )}
               
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleBackToDashboard} className="gap-2 text-sm bg-transparent border-white/10 hover:bg-white/5">
+                <Button variant="outline" onClick={handleBackToDashboard} className="hidden gap-2 text-sm sm:inline-flex">
                   <Home className="w-4 h-4" />
                   Dashboard
                 </Button>
                 <Button onClick={handleNewComparison} className="gap-2 text-sm">
-                  New Comparison
+                  New blend
                 </Button>
               </div>
             </div>
-          </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-16 relative z-10">
-        <Star className="top-20 left-10 text-background hidden md:block z-0" />
-        <Circle className="bottom-40 right-10 hidden lg:block z-0" />
-        
-        <div className="animate-fade-in relative z-10">
+      <main id="comparison-content" className="mx-auto max-w-[92rem] px-5 py-10 lg:px-10 lg:py-14">
+        <div>
           {comparisonMeta && (
-            <Card className="mb-8 p-6 bg-card border-[3px] border-border shadow-[var(--shadow-card)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <Card className="mb-7 flex flex-col gap-4 border-border bg-card p-5 shadow-none md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
-                <h3 className="text-sm font-black tracking-tight text-foreground uppercase">Data Synchronization</h3>
-                <p className="text-xs font-bold text-muted-foreground max-w-xl">
-                  Compatibility metrics are based on the latest data snapshots. For the most accurate analysis, ensure both profiles are recently synchronized.
+                <h3 className="text-sm font-bold text-foreground">Snapshot freshness</h3>
+                <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+                  Results use the latest saved profile for each person. Refresh yours if your feed changed recently.
                 </p>
               </div>
               <Button onClick={handleRefreshMyData} disabled={refreshing} variant="default" className="gap-2 whitespace-nowrap">
-                {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Refresh My Snapshot
+                {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                {refreshing ? "Refreshing" : "Refresh mine"}
               </Button>
             </Card>
           )}
           {/* Match Score Card */}
           {matchMessage && (
-            <Card className="mb-12 p-10 text-center bg-card border-[4px] border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative overflow-visible transition-transform mt-8">
-              <Squiggle className="-top-12 -right-12 hidden md:block z-20" />
-              <div className="relative space-y-8 z-10">
+            <section className="workspace-hero mb-12 px-6 py-10 text-center sm:px-10 sm:py-12">
+              <div className="relative z-10 space-y-7">
                 <CompatibilityAvatars
                   viewerProfile={comparisonMeta?.viewer?.profile}
                   otherProfile={comparisonMeta?.other?.profile}
                   score={comparisonData.scores.overall}
                 />
                 <div>
-                  <h2 className="text-5xl md:text-6xl font-black tracking-tight text-foreground mb-4 uppercase text-outline text-background inline-block">
+                  <p className="section-kicker">Your result</p>
+                  <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-black leading-[.95] tracking-[-.055em] text-foreground sm:text-6xl">
                     {matchMessage.text}
-                  </h2>
-                  <p className="text-lg font-bold text-foreground/80 max-w-2xl mx-auto leading-relaxed bg-white/90 border-[2px] border-border p-4 shadow-[4px_4px_0_0_rgba(0,0,0,1)] mt-4">
+                  </h1>
+                  <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                     {matchMessage.desc}
                   </p>
                 </div>
               </div>
-            </Card>
+            </section>
           )}
 
           {/* Detailed Results Tabs */}
           <Tabs defaultValue="scores" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-8 overflow-x-auto">
+            <TabsList className="mb-8 grid w-full grid-cols-3 overflow-x-auto md:grid-cols-6">
               <TabsTrigger value="scores" className="flex items-center gap-1 text-xs md:text-sm">
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Scores</span>
@@ -440,8 +408,8 @@ const CompareFinalise = () => {
 
             <TabsContent value="subscriptions" className="space-y-6">
               <div>
-                <h2 className="text-3xl font-black text-foreground mb-2 uppercase">Your Channels</h2>
-                <p className="text-sm font-bold text-muted-foreground mb-4">See the channels you're following and compare your viewing preferences.</p>
+                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both channel lists</h2>
+                <p className="mb-4 text-sm text-muted-foreground">See the creators shaping each feed.</p>
               </div>
               <DataGrid
                 viewerData={comparisonData.subscriptions}
@@ -456,8 +424,8 @@ const CompareFinalise = () => {
 
             <TabsContent value="videos" className="space-y-6">
               <div>
-                <h2 className="text-3xl font-black text-foreground mb-2 uppercase">Your Saved Videos</h2>
-                <p className="text-sm font-bold text-muted-foreground mb-4">Videos you've saved and loved over time.</p>
+                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both saved lists</h2>
+                <p className="mb-4 text-sm text-muted-foreground">The videos each of you chose to keep.</p>
               </div>
               <DataGrid
                 viewerData={comparisonData.saved_videos}
@@ -472,8 +440,8 @@ const CompareFinalise = () => {
 
             <TabsContent value="music" className="space-y-6">
               <div>
-                <h2 className="text-3xl font-black text-foreground mb-2 uppercase">Your Music Taste</h2>
-                <p className="text-sm font-bold text-muted-foreground mb-4">The most-played music from your collection, sorted by listen count.</p>
+                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both music profiles</h2>
+                <p className="mb-4 text-sm text-muted-foreground">The tracks on each side of the comparison.</p>
               </div>
               <DataGrid
                 viewerData={comparisonData.music_listened}
@@ -556,5 +524,15 @@ const CompareFinalise = () => {
     </div>
   );
 };
+
+const PageState = ({ icon: Icon, title, text, spin = false }: { icon: typeof Loader2; title: string; text: string; spin?: boolean }) => (
+  <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="app-loading-card">
+      <Icon className={`mx-auto h-8 w-8 text-primary ${spin ? "animate-spin" : ""}`} />
+      <h1 className="mt-5 text-2xl font-extrabold">{title}</h1>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+    </div>
+  </div>
+);
 
 export default CompareFinalise;
