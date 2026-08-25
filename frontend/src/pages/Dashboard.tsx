@@ -154,28 +154,28 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main id="dashboard-content" className="mx-auto max-w-[92rem] px-5 py-10 lg:px-10 lg:py-14">
+      <main id="dashboard-content" className="mx-auto max-w-[88rem] px-5 py-8 lg:px-10 lg:py-12">
         <section className="workspace-hero p-6 sm:p-9 lg:p-12">
-          <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_.9fr] lg:items-end">
-            <div>
-              <p className="section-kicker">Your YouTube story</p>
-              <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[.86] tracking-[-.075em] sm:text-7xl">Your feed has a personality.</h1>
-              <p className="mt-5 max-w-2xl text-lg font-medium leading-7 text-foreground/75">You collect channels, save rabbit holes, and keep returning to a very particular mix. This is your side of the story before someone else joins it.</p>
-              <Button onClick={syncUserData} disabled={syncing} variant="outline" className="mt-7">{syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} {syncing ? "Refreshing profile" : "Refresh profile"}</Button>
-            </div>
-            <div className="workspace-panel p-5 sm:p-6">
-              <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.14em]">Make it a duo</p><h2 className="mt-2 text-3xl font-black tracking-[-.05em]">Who gets your feed?</h2></div><LinkIcon className="h-5 w-5" /></div>
-              <p className="mt-3 text-sm font-medium leading-6 text-muted-foreground">Invite one person and unlock the shared channels, plot twists, recommendations, and final match card. The link expires in two hours.</p>
+          <div className="relative z-10 grid gap-12 lg:grid-cols-[.78fr_1.22fr] lg:items-center">
+            <div className="workspace-panel p-5 sm:p-7">
+              <div className="flex items-start justify-between gap-4"><div><p className="section-kicker">Start a shared room</p><h1 className="mt-3 text-4xl font-medium leading-none tracking-[-.055em] sm:text-5xl">Bring one person into your feed.</h1></div><LinkIcon className="h-5 w-5 text-primary" /></div>
+              <p className="mt-5 text-sm leading-6 text-muted-foreground">One private link opens a shared view of your overlap, differences, and recommendations. It expires in two hours.</p>
               {!shareLink ? <Button onClick={generateLink} disabled={generatingLink} className="mt-5 w-full">{generatingLink ? <Loader2 className="animate-spin" /> : <LinkIcon />} {generatingLink ? "Creating invite" : "Create invite link"}</Button> : <div className="mt-5"><div className="flex gap-2"><input value={shareLink} readOnly aria-label="Comparison invite link" className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-xs text-foreground" /><Button onClick={copyLink} size="sm">{copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy"}</Button></div><button onClick={() => setShareLink(null)} className="mt-3 text-xs font-bold text-muted-foreground hover:text-foreground">Create another link</button></div>}
+            </div>
+            <div>
+              <p className="section-kicker">Your side of the room</p>
+              <h2 className="mt-4 max-w-3xl text-5xl font-medium leading-[.95] tracking-[-.06em] sm:text-7xl">A feed shaped like you.</h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-foreground/55">Before anyone joins, this is the material Blend found: the creators you follow, the things you keep, and the subjects that pull you back.</p>
+              <Button onClick={syncUserData} disabled={syncing} variant="ghost" className="mt-5 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground">{syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} {syncing ? "Refreshing profile" : "Refresh profile"}</Button>
             </div>
           </div>
         </section>
 
-        {userData && <section className="mt-12 grid grid-cols-2 gap-5 md:grid-cols-4"><Stat value={userData.subscriptions?.length || 0} label="subscriptions" /><Stat value={userData.music_listened?.length || 0} label="music tracks" /><Stat value={userData.saved_videos?.length || 0} label="saved videos" /><Stat value={userData.playlists?.length || 0} label="playlists" /></section>}
+        {userData && <section className="mt-10 grid grid-cols-2 gap-x-6 md:grid-cols-4"><Stat value={userData.subscriptions?.length || 0} label="subscriptions" /><Stat value={userData.music_listened?.length || 0} label="music tracks" /><Stat value={userData.saved_videos?.length || 0} label="saved videos" /><Stat value={userData.playlists?.length || 0} label="playlists" /></section>}
 
-        {userData && <section className="mt-20">
-          <div className="section-heading"><div><p className="section-kicker">The receipts</p><h2 className="mt-3">Everything behind your taste.</h2></div><span className="hidden text-xs font-bold uppercase tracking-wider text-muted-foreground sm:block">Pick a chapter</span></div>
-          <div className="section-nav my-7" role="navigation" aria-label="Profile categories">{sections.map(({ key, label, count, icon: Icon }) => <Button key={key} variant={activeSection === key ? "default" : "ghost"} onClick={() => setActiveSection(key)} className="shrink-0"><Icon />{label}<Badge variant="secondary" className="ml-1">{count}</Badge></Button>)}</div>
+        {userData && <section className="mt-24">
+          <div className="section-heading"><div><p className="section-kicker">Your collection</p><h2 className="mt-3">Browse the shape of your taste.</h2></div><span className="hidden text-xs text-muted-foreground sm:block">Choose a view</span></div>
+          <div className="section-nav my-7" role="navigation" aria-label="Profile categories">{sections.map(({ key, label, count, icon: Icon }) => <Button key={key} variant={activeSection === key ? "default" : "ghost"} onClick={() => setActiveSection(key)} className="shrink-0 rounded-full"><Icon />{label}<Badge variant="secondary" className="ml-1">{count}</Badge></Button>)}</div>
 
           {activeSection === "channels" && <Section title="The channels that made you" subtitle="The creators doing most of the shaping" count={userData.subscriptions?.length || 0}><FloatingChannels channels={userData.subscriptions || []} title="" /></Section>}
           {activeSection === "music" && <Section title="Your repeat soundtrack" subtitle="The tracks that followed you back here" count={userData.music_listened?.length || 0}><MusicShowcase musicTracks={userData.music_listened || []} /></Section>}

@@ -24,7 +24,7 @@ export const VideoCard = ({ title, thumbnailUrl, videoId, playlistId, channelId 
 
   return (
     <Card
-      className="group cursor-pointer overflow-hidden border-[2px] border-foreground bg-card shadow-[5px_5px_0_0_#090909] transition-all duration-200 hover:-translate-y-1 hover:rotate-[.5deg]"
+      className="group cursor-pointer overflow-hidden border border-white/10 bg-white/[.035] shadow-none transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
       onClick={openYouTubeLink}
     >
       <div className="relative aspect-video overflow-hidden bg-secondary">
@@ -38,8 +38,8 @@ export const VideoCard = ({ title, thumbnailUrl, videoId, playlistId, channelId 
           <span className="grid h-11 w-11 scale-90 place-items-center rounded-full bg-primary text-white opacity-0 shadow-lg transition-all group-hover:scale-100 group-hover:opacity-100"><Play className="h-4 w-4 fill-current" /></span>
         </div>
       </div>
-      <div className="border-t-2 border-foreground bg-card p-3.5">
-        <p className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
+      <div className="border-t border-white/10 bg-transparent p-3.5">
+        <p className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
           {title}
         </p>
       </div>

@@ -27,7 +27,7 @@ export const CompatibilityAvatars = ({ viewerProfile, otherProfile, score, class
       {/* Viewer Avatar (Slides in from Left) */}
       <div 
         className={cn(
-          "absolute z-10 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[6px] border-background bg-secondary shadow-2xl transition-all duration-700 ease-out",
+          "absolute z-10 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-secondary shadow-2xl transition-all duration-700 ease-out",
           animate ? "translate-x-[-40px]" : "translate-x-[-150px] opacity-0"
         )}
       >
@@ -41,17 +41,17 @@ export const CompatibilityAvatars = ({ viewerProfile, otherProfile, score, class
       {/* Score Badge (Fades in Center) */}
       <div 
         className={cn(
-          "absolute z-30 flex h-16 w-16 items-center justify-center rounded-full border-[6px] border-background bg-primary text-primary-foreground shadow-xl transition-all delay-300 duration-1000 ease-in-out",
+          "absolute z-30 flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-primary text-primary-foreground shadow-xl transition-all delay-300 duration-1000 ease-in-out",
           animate ? "opacity-100 scale-100" : "opacity-0 scale-50"
         )}
       >
-        <span className="text-xl font-black">{score.toFixed(0)}%</span>
+        <span className="text-xl font-medium">{score.toFixed(0)}%</span>
       </div>
 
       {/* Other Avatar (Slides in from Right) */}
       <div 
         className={cn(
-          "absolute z-20 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[6px] border-background bg-secondary shadow-2xl transition-all duration-700 ease-out",
+          "absolute z-20 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-secondary shadow-2xl transition-all duration-700 ease-out",
           animate ? "translate-x-[40px]" : "translate-x-[150px] opacity-0"
         )}
       >

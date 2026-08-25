@@ -26,32 +26,32 @@ export const BlendScene = ({ className = "" }: BlendSceneProps) => {
     const group = new THREE.Group();
     scene.add(group);
 
-    const redGeometry = new THREE.TorusKnotGeometry(1.15, 0.38, 180, 24, 2, 3);
-    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xd9ff3f, roughness: 0.24, metalness: 0.06 });
+    const redGeometry = new THREE.TorusKnotGeometry(1.18, 0.3, 220, 32, 2, 3);
+    const redMaterial = new THREE.MeshPhysicalMaterial({ color: 0xef6859, roughness: 0.32, metalness: 0.12, clearcoat: 0.7, clearcoatRoughness: 0.28 });
     const redOrb = new THREE.Mesh(redGeometry, redMaterial);
-    redOrb.position.x = -0.52;
-    redOrb.scale.setScalar(1.08);
+    redOrb.position.x = -0.48;
+    redOrb.scale.setScalar(1.05);
     group.add(redOrb);
 
-    const inkGeometry = new THREE.TorusKnotGeometry(1.05, 0.32, 160, 22, 3, 2);
-    const inkMaterial = new THREE.MeshStandardMaterial({ color: 0x8864ff, roughness: 0.28, metalness: 0.08 });
+    const inkGeometry = new THREE.TorusKnotGeometry(1.04, 0.26, 210, 30, 3, 2);
+    const inkMaterial = new THREE.MeshPhysicalMaterial({ color: 0x7182de, roughness: 0.3, metalness: 0.18, clearcoat: 0.82, clearcoatRoughness: 0.22 });
     const inkOrb = new THREE.Mesh(inkGeometry, inkMaterial);
     inkOrb.position.x = 0.58;
     inkOrb.rotation.x = 0.9;
     group.add(inkOrb);
 
-    const ringGeometry = new THREE.TorusGeometry(1.9, 0.025, 12, 180);
-    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x090909, transparent: true, opacity: 0.32 });
+    const ringGeometry = new THREE.TorusGeometry(1.9, 0.012, 12, 180);
+    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xd9dce8, transparent: true, opacity: 0.2 });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     ring.rotation.x = 1.2;
     ring.rotation.y = 0.38;
     group.add(ring);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xf04a3c, 3.4));
+    scene.add(new THREE.HemisphereLight(0xf8f5ee, 0x11131e, 2.8));
     const key = new THREE.DirectionalLight(0xffffff, 4.5);
     key.position.set(3, 5, 5);
     scene.add(key);
-    const rim = new THREE.PointLight(0xff9ac5, 18, 16);
+    const rim = new THREE.PointLight(0x6679df, 15, 16);
     rim.position.set(-4, -2, 3);
     scene.add(rim);
 

@@ -284,12 +284,12 @@ const CompareFinalise = () => {
         </div>
       </header>
 
-      <main id="comparison-content" className="mx-auto max-w-[92rem] px-5 py-10 lg:px-10 lg:py-14">
+      <main id="comparison-content" className="mx-auto max-w-[88rem] px-5 py-8 lg:px-10 lg:py-12">
         <div>
           {comparisonMeta && (
-            <Card className="mb-7 flex flex-col gap-4 border-border bg-card p-5 shadow-none md:flex-row md:items-center md:justify-between">
+            <Card className="mb-6 flex flex-col gap-4 border-white/10 bg-white/[.025] p-4 shadow-none md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-foreground">Snapshot freshness</h3>
+                <h3 className="text-sm font-medium text-foreground">Using both latest snapshots</h3>
                 <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
                   Results use the latest saved profile for each person. Refresh yours if your feed changed recently.
                 </p>
@@ -302,16 +302,16 @@ const CompareFinalise = () => {
           )}
           {/* Match Score Card */}
           {matchMessage && (
-            <section className="workspace-hero mb-12 px-6 py-10 text-center sm:px-10 sm:py-12">
-              <div className="relative z-10 space-y-7">
+            <section className="workspace-hero mb-8 px-6 py-12 text-center sm:px-10 sm:py-16">
+              <div className="relative z-10 space-y-6">
                 <CompatibilityAvatars
                   viewerProfile={comparisonMeta?.viewer?.profile}
                   otherProfile={comparisonMeta?.other?.profile}
                   score={comparisonData.scores.overall}
                 />
                 <div>
-                  <p className="section-kicker">Your YouTube story</p>
-                  <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-black leading-[.95] tracking-[-.055em] text-foreground sm:text-6xl">
+                  <p className="section-kicker">Your shared signal</p>
+                  <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-medium leading-[.95] tracking-[-.055em] text-foreground sm:text-6xl">
                     {matchMessage.text}
                   </h1>
                   <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -340,9 +340,9 @@ const CompareFinalise = () => {
             </div>
           </section>
 
-          {/* Detailed Results Tabs */}
+          <div className="mb-6 mt-16"><p className="section-kicker">Move through the room</p><h2 className="mt-3 text-4xl font-medium tracking-[-.055em] sm:text-5xl">What connects you, and what comes next.</h2></div>
           <Tabs defaultValue="scores" className="w-full">
-            <TabsList className="mb-8 grid w-full grid-cols-3 overflow-x-auto md:grid-cols-6">
+            <TabsList className="mb-10 grid h-auto w-full grid-cols-3 gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.025] p-1 md:grid-cols-6">
               <TabsTrigger value="scores" className="flex items-center gap-1 text-xs md:text-sm">
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">Scores</span>
@@ -371,7 +371,7 @@ const CompareFinalise = () => {
 
             <TabsContent value="scores" className="space-y-6">
               <div>
-                <h2 className="mb-2 text-4xl font-black tracking-[-.06em] text-foreground">How the story adds up</h2>
+                <h2 className="mb-2 text-4xl font-medium tracking-[-.06em] text-foreground">How the signal adds up</h2>
                 <p className="mb-4 text-sm text-muted-foreground">The overall score, unpacked without making it feel like homework.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -383,7 +383,7 @@ const CompareFinalise = () => {
 
             <TabsContent value="common" className="space-y-8">
               <div className="mb-6">
-                <h2 className="mb-2 text-4xl font-black tracking-[-.06em] text-foreground">The shared obsession</h2>
+                <h2 className="mb-2 text-4xl font-medium tracking-[-.06em] text-foreground">The shared obsession</h2>
                 <p className="text-muted-foreground">The exact part of YouTube where both of your universes keep meeting.</p>
               </div>
 

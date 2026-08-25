@@ -15,11 +15,11 @@ export const ChannelCard = ({ title, logoUrl, channelId }: ChannelCardProps) => 
 
   return (
     <Card
-      className="group cursor-pointer border-[2px] border-foreground bg-card p-4 shadow-[4px_4px_0_0_#090909] transition-all duration-200 hover:-translate-y-1 hover:-rotate-1"
+      className="group cursor-pointer border border-white/10 bg-white/[.035] p-4 shadow-none transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[.055]"
       onClick={openChannel}
     >
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-foreground bg-secondary">
+        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/10 bg-secondary">
           <img
             src={logoUrl || "https://via.placeholder.com/88?text=Channel"}
             alt={title}
@@ -27,7 +27,7 @@ export const ChannelCard = ({ title, logoUrl, channelId }: ChannelCardProps) => 
             loading="lazy"
           />
         </div>
-        <p className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
+        <p className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
           {title}
         </p>
       </div>
