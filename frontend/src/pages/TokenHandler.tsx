@@ -21,8 +21,9 @@ const TokenHandler = () => {
     if (accessToken && refreshToken) {
       try {
         saveTokens({ access_token: accessToken, refresh_token: refreshToken });
-      } catch (e) {
-        console.error("Failed to save tokens", e);
+      } catch {
+        navigate("/", { replace: true });
+        return;
       }
       // Navigate to dashboard with a clean URL
       navigate("/dashboard", { replace: true });
@@ -39,8 +40,8 @@ const TokenHandler = () => {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="app-loading-card">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <h1 className="mt-5 text-xl font-extrabold">Opening your watchroom</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Finalizing sign-in.</p>
+          <h1 className="mt-5 text-xl font-extrabold">Preparing your Blend</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Finalising sign-in.</p>
         </div>
       </div>
     );

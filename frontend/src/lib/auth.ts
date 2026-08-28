@@ -14,6 +14,7 @@ export interface AuthTokens {
 
 export const authClient = axios.create({
   baseURL: API_BASE,
+  timeout: 30000,
 });
 
 // Add auth token to requests
@@ -43,11 +44,10 @@ authClient.interceptors.response.use(
             refresh_token: tokens.refresh_token,
           });
 
-          if (response.data.access_token) {
-            // Save new token
+          if (response.data.access_token && response.data.refresh_token) {
             saveTokens({
               access_token: response.data.access_token,
-              refresh_token: tokens.refresh_token,
+              refresh_token: response.data.refresh_token,
             });
 
             // Retry original request with new token
@@ -56,8 +56,7 @@ authClient.interceptors.response.use(
           }
         }
       } catch (refreshError) {
-        console.error("Token refresh failed:", refreshError);
-        // Clear tokens and redirect to login
+        console.warn("Blend session expired.");
         clearTokens();
         window.location.href = '/';
       }
@@ -73,7 +72,14 @@ export const saveTokens = (tokens: AuthTokens) => {
 
 export const getTokens = (): AuthTokens | null => {
   const stored = localStorage.getItem('auth_tokens');
-  return stored ? JSON.parse(stored) : null;
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as Partial<AuthTokens>;
+    return parsed.access_token && parsed.refresh_token ? parsed as AuthTokens : null;
+  } catch {
+    localStorage.removeItem('auth_tokens');
+    return null;
+  }
 };
 
 export const clearTokens = () => {
@@ -85,19 +91,8 @@ export const isAuthenticated = (): boolean => {
 };
 
 export const initiateLogin = async () => {
-  console.log("Initiating login with backend:", API_BASE);
-  try {
-    const response = await axios.get(`${API_BASE}/auth/login`);
-    console.log("Login endpoint response:", response.data);
-    if (response.data.url) {
-      // State is managed server-side, just redirect
-      console.log("Redirecting to Google OAuth:", response.data.url);
-      window.location.href = response.data.url;
-    } else {
-      console.error("Invalid response from /auth/login:", response.data);
-    }
-  } catch (error) {
-    console.error("Error initiating login:", error);
-    throw error;
-  }
+  if (!API_BASE) throw new Error("VITE_API_URL is not configured");
+  const response = await axios.get<{ url: string }>(`${API_BASE}/auth/login`);
+  if (!response.data.url) throw new Error("Google sign-in URL was not returned");
+  window.location.assign(response.data.url);
 };

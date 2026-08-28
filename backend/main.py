@@ -1,26 +1,27 @@
 # main.py - FINAL WORKING VERSION (CASE-SENSITIVE IMPORT FIXED)
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from google_auth_oauthlib.flow import Flow
 from collections import defaultdict
 from time import time
 from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from pymongo import MongoClient
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from pymongo import MongoClient, ReturnDocument
 import asyncio
+import hashlib
 import os
 import requests
 import jwt as pyjwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from pydantic import BaseModel
 import secrets
 import uuid
 import json
-from typing import Optional
+from typing import Any, Dict, Optional
 from services.youtube import (
     get_youtube_service,
     fetch_subscriptions,
@@ -40,21 +41,42 @@ app = FastAPI()
 
 rate_limit_store = defaultdict(lambda: defaultdict(list))
 
+
+def _rate_limit_rule(request: Request):
+    """Return a stable bucket and request limit for sensitive dynamic routes."""
+    path = request.url.path
+    if path.startswith("/api/"):
+        path = path[4:]
+
+    segments = [segment for segment in path.split("/") if segment]
+    if len(segments) == 3 and segments[:2] == ["compare", "join"]:
+        return "compare_join", 20
+    if len(segments) == 3 and segments[:2] == ["compare", "run"]:
+        return "compare_run", 60 if request.method == "GET" else 20
+    if segments == ["auth", "refresh"]:
+        return "auth_refresh", 30
+    return None
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         client_ip = request.client.host if request.client else "unknown"
-        endpoint = request.url.path
+        rule = _rate_limit_rule(request)
 
-        if endpoint in ["/compare/join", "/compare/run"]:
+        if rule:
+            bucket, request_limit = rule
             now = time()
-            rate_limit_store[client_ip][endpoint] = [
-                t for t in rate_limit_store[client_ip][endpoint] if now - t < 60
+            rate_limit_store[client_ip][bucket] = [
+                t for t in rate_limit_store[client_ip][bucket] if now - t < 60
             ]
 
-            if len(rate_limit_store[client_ip][endpoint]) >= 20:
-                raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
+            if len(rate_limit_store[client_ip][bucket]) >= request_limit:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many requests. Try again later."},
+                    headers={"Retry-After": "60"},
+                )
 
-            rate_limit_store[client_ip][endpoint].append(now)
+            rate_limit_store[client_ip][bucket].append(now)
 
         return await call_next(request)
 
@@ -66,17 +88,14 @@ def generate_secure_code() -> str:
 
 def validate_redirect_target(target: Optional[str]) -> str:
     """Validate and sanitize redirect target."""
-    allowed_paths = {'/dashboard', '/compare/finalise'}
-
     if not target:
         return '/dashboard'
 
     target_path = f'/{target.lstrip("/")}'
-
-    for allowed in allowed_paths:
-        if target_path.startswith(allowed):
-            return target_path
-
+    if target_path == '/dashboard':
+        return target_path
+    if target_path.startswith('/compare/finalise/') and len(target_path.split('/')) == 4:
+        return target_path
     return '/dashboard'
 
 def build_redirect_uri() -> str:
@@ -111,11 +130,15 @@ users = db.users
 auth_states = db.auth_states
 auth_codes = db.auth_codes
 comparisons = db.comparisons
+app_sessions = db.app_sessions
 
 try:
     auth_states.create_index("expires_at", expireAfterSeconds=0)
     auth_codes.create_index("expires_at", expireAfterSeconds=0)
     comparisons.create_index("expires_at", expireAfterSeconds=0)
+    app_sessions.create_index("expires_at", expireAfterSeconds=0)
+    app_sessions.create_index("refresh_token_hash", unique=True)
+    app_sessions.create_index([("google_id", 1), ("expires_at", 1)])
 except Exception:
     logger.exception("Failed to ensure TTL indexes on collections")
 
@@ -126,19 +149,119 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile"
 ]
 
+ACCESS_TOKEN_MINUTES = 30
+APP_SESSION_DAYS = max(1, int(os.getenv("APP_SESSION_DAYS", "30")))
+
+
+def _utcnow() -> datetime:
+    return datetime.utcnow()
+
+
+def _parse_expiry(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+
+    if parsed.tzinfo:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _credentials_for_storage(creds: Credentials) -> Dict[str, Any]:
+    """Serialize only the credential fields required to call Google again."""
+    payload: Dict[str, Any] = {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri or "https://oauth2.googleapis.com/token",
+        "client_id": creds.client_id or os.getenv("GOOGLE_CLIENT_ID"),
+        "scopes": list(creds.scopes or SCOPES),
+    }
+    if creds.expiry:
+        payload["expiry"] = creds.expiry.isoformat()
+    return payload
+
+
+def _refresh_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _issue_access_token(google_id: str, session_id: Optional[str] = None) -> str:
+    jwt_secret = os.getenv("JWT_SECRET")
+    if not jwt_secret:
+        raise HTTPException(status_code=500, detail="Authentication is not configured")
+
+    now = _utcnow()
+    payload: Dict[str, Any] = {
+        "sub": google_id,
+        "type": "access",
+        "iat": now,
+        "exp": now + timedelta(minutes=ACCESS_TOKEN_MINUTES),
+        "jti": uuid.uuid4().hex,
+    }
+    if session_id:
+        payload["sid"] = session_id
+    return pyjwt.encode(payload, jwt_secret, algorithm="HS256")
+
+
+def _create_app_session(google_id: str) -> Dict[str, str]:
+    """Create an app session while storing only a digest of its refresh token."""
+    now = _utcnow()
+    refresh_token = secrets.token_urlsafe(64)
+    session_id = uuid.uuid4().hex
+    app_sessions.insert_one({
+        "session_id": session_id,
+        "google_id": google_id,
+        "refresh_token_hash": _refresh_token_hash(refresh_token),
+        "created_at": now,
+        "last_used_at": now,
+        "expires_at": now + timedelta(days=APP_SESSION_DAYS),
+        "rotation_count": 0,
+    })
+    return {
+        "access_token": _issue_access_token(google_id, session_id),
+        "refresh_token": refresh_token,
+    }
+
+
+def _revoke_app_sessions(google_id: str) -> None:
+    now = _utcnow()
+    app_sessions.update_many(
+        {"google_id": google_id, "revoked_at": {"$exists": False}},
+        {"$set": {"revoked_at": now, "expires_at": now}},
+    )
+
 async def verify_token(authorization: str = Header(None)):
     """Verify JWT token from Authorization header."""
-    if not authorization:
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
     try:
-        token = authorization.replace("Bearer ", "")
+        token = authorization.removeprefix("Bearer ").strip()
         jwt_secret = os.getenv('JWT_SECRET')
         if not jwt_secret:
-            raise HTTPException(status_code=500, detail='JWT_SECRET not configured')
+            raise HTTPException(status_code=500, detail='Authentication is not configured')
 
         payload = pyjwt.decode(token, jwt_secret, algorithms=['HS256'])
-        return payload.get('sub')
+        if payload.get("type") not in (None, "access"):
+            raise HTTPException(status_code=401, detail="Invalid token")
+        google_id = payload.get('sub')
+        if not google_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        session_id = payload.get('sid')
+        if session_id and not app_sessions.find_one({
+            'session_id': session_id,
+            'google_id': google_id,
+            'expires_at': {'$gt': _utcnow()},
+            'revoked_at': {'$exists': False},
+        }):
+            raise HTTPException(status_code=401, detail="Session is no longer active")
+        return google_id
     except pyjwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except pyjwt.InvalidTokenError:
@@ -159,23 +282,23 @@ def get_credentials_from_db(google_id: str) -> Optional[Credentials]:
         creds = Credentials(
             token=token_data.get('token') or token_data.get('access_token'),
             refresh_token=token_data.get('refresh_token'),
-            id_token=token_data.get('id_token'),
             token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
             client_id=token_data.get('client_id') or os.getenv('GOOGLE_CLIENT_ID'),
-            client_secret=token_data.get('client_secret') or os.getenv('GOOGLE_CLIENT_SECRET'),
+            client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
             scopes=token_data.get('scopes', SCOPES),
+            expiry=_parse_expiry(token_data.get("expiry")),
         )
 
         if creds.expired and creds.refresh_token:
-            logger.info(f"Refreshing token for {google_id}")
-            creds.refresh(Request())
+            logger.info("Refreshing Google credentials for authenticated user")
+            creds.refresh(GoogleAuthRequest())
             users.update_one(
                 {'google_id': google_id},
-                {'$set': {'token_json': creds.to_json(), 'updated_at': datetime.utcnow()}}
+                {'$set': {'token_json': _credentials_for_storage(creds), 'updated_at': _utcnow()}}
             )
         return creds if creds.valid else None
-    except Exception as e:
-        logger.error(f"Token error for {google_id}: {e}")
+    except Exception:
+        logger.exception("Failed to load or refresh Google credentials")
         return None
 
 @app.get("/")
@@ -421,9 +544,9 @@ async def login(next: str = None, comparison_id: str = None):
             include_granted_scopes="true",
             prompt="consent"
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to build OAuth flow")
-        raise HTTPException(status_code=500, detail=f"OAuth setup error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to start Google sign-in")
 
     auth_states.insert_one({
         "state": state,
@@ -474,14 +597,25 @@ async def callback(code: str, state: str):
             logger.error("Userinfo missing id: %s", userinfo)
             raise HTTPException(status_code=500, detail="Failed to retrieve Google user id")
 
+        existing_user = users.find_one({"google_id": google_id}, {"token_json": 1})
+        existing_token_data = (existing_user or {}).get("token_json") or {}
+        if isinstance(existing_token_data, str):
+            try:
+                existing_token_data = json.loads(existing_token_data)
+            except json.JSONDecodeError:
+                existing_token_data = {}
+
+        google_refresh_token = tokens.get('refresh_token') or existing_token_data.get('refresh_token')
+        expires_in = tokens.get("expires_in")
+        credential_expiry = _utcnow() + timedelta(seconds=int(expires_in)) if expires_in else None
         cred = Credentials(
             token=tokens.get('access_token'),
-            refresh_token=tokens.get('refresh_token'),
-            id_token=tokens.get('id_token'),
+            refresh_token=google_refresh_token,
             token_uri=tokens.get('token_uri', 'https://oauth2.googleapis.com/token'),
             client_id=os.getenv('GOOGLE_CLIENT_ID'),
             client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
             scopes=SCOPES,
+            expiry=credential_expiry,
         )
         profile = {
             "email": userinfo.get("email"),
@@ -491,7 +625,11 @@ async def callback(code: str, state: str):
 
         users.update_one(
             {"google_id": google_id},
-            {"$set": {"token_json": cred.to_json(), "profile": profile, "updated_at": datetime.utcnow()}},
+            {"$set": {
+                "token_json": _credentials_for_storage(cred),
+                "profile": profile,
+                "updated_at": _utcnow(),
+            }},
             upsert=True
         )
 
@@ -507,7 +645,10 @@ async def callback(code: str, state: str):
                     if not creds:
                         users.update_one(
                             {"google_id": google_id},
-                            {"$set": {"token_json": cred.to_json(), "updated_at": datetime.utcnow()}},
+                            {"$set": {
+                                "token_json": _credentials_for_storage(cred),
+                                "updated_at": _utcnow(),
+                            }},
                             upsert=True
                         )
                         creds = get_credentials_from_db(google_id)
@@ -518,14 +659,22 @@ async def callback(code: str, state: str):
                         subscription_genres = fetch_subscription_genres(youtube, [s['channel_id'] for s in subscriptions])
                         saved_data = fetch_saved_videos(youtube)
                         music_listened, video_genres = determine_music_and_genres(youtube, saved_data['video_ids'])
+                        playlists = fetch_playlists(youtube)
 
                         user2_data = {
                             'subscriptions': subscriptions,
                             'subscription_genres': subscription_genres,
                             'saved_videos': saved_data['saved_videos'],
                             'music_listened': music_listened,
-                            'video_genres': video_genres
+                            'video_genres': video_genres,
+                            'playlists': playlists,
                         }
+
+                        cache_user_data(google_id, user2_data)
+                        users.update_one(
+                            {'google_id': google_id},
+                            {'$set': {'last_full_sync': _utcnow()}},
+                        )
 
                         comparisons.update_one(
                             {'_id': comparison_id},
@@ -552,9 +701,9 @@ async def callback(code: str, state: str):
                         frontend = os.getenv("FRONTEND_URL", "http://localhost:3000")
                         final_url = f"{frontend.rstrip('/')}/auth/complete?code={auth_code}&next=/compare/finalise/{comparison_id}"
                         return RedirectResponse(url=final_url, status_code=302)
-                except Exception as e:
+                except Exception:
                     logger.exception("Error fetching user2 data during comparison")
-                    raise HTTPException(status_code=500, detail=f"Failed to fetch YouTube data: {str(e)}")
+                    raise HTTPException(status_code=500, detail="Unable to prepare comparison data")
 
         auth_code = secrets.token_urlsafe(32)
         code_doc = {
@@ -570,13 +719,13 @@ async def callback(code: str, state: str):
         frontend = os.getenv("FRONTEND_URL", "http://localhost:3000")
         final_url = f"{frontend.rstrip('/')}/auth/complete?code={auth_code}"
         if state_doc.get('next'):
-            final_url += f"&next={state_doc.get('next')}"
+            final_url += f"&next={validate_redirect_target(state_doc.get('next'))}"
         return RedirectResponse(url=final_url, status_code=302)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception("OAuth callback failed")
-        raise HTTPException(status_code=500, detail=f"OAuth callback error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Google sign-in could not be completed")
 
 @app.get("/health")
 async def health():
@@ -589,7 +738,7 @@ class ExchangeRequest(BaseModel):
 
 @app.post("/auth/exchange")
 async def auth_exchange(req: ExchangeRequest):
-    """Exchange a single-use auth code for a signed JWT and user id."""
+    """Exchange a single-use OAuth handoff code for an app session."""
     code_doc = auth_codes.find_one_and_delete({
         'code': req.code,
         'expires_at': {'$gt': datetime.utcnow()}
@@ -598,49 +747,80 @@ async def auth_exchange(req: ExchangeRequest):
         raise HTTPException(status_code=400, detail='Invalid or expired code')
 
     google_id = code_doc.get('google_id')
-    jwt_secret = os.getenv('JWT_SECRET')
-    if not jwt_secret:
-        raise HTTPException(status_code=500, detail='JWT_SECRET not configured')
-
-    token = pyjwt.encode({
-        'sub': google_id,
-        'exp': datetime.utcnow() + timedelta(minutes=30)
-    }, jwt_secret, algorithm='HS256')
-
-    return {'access_token': token, 'user_id': google_id}
+    return {**_create_app_session(google_id), 'user_id': google_id}
 
 
 @app.post("/auth/refresh")
 async def refresh_token(body: dict):
-    """Refresh JWT access token using refresh_token."""
+    """Rotate an app refresh token and issue a fresh access token."""
     try:
         refresh_token_provided = body.get('refresh_token')
         if not refresh_token_provided:
             raise HTTPException(status_code=400, detail='Refresh token required')
 
-        code_collection = db['comparison_codes']
-        code_doc = code_collection.find_one({'refresh_token': refresh_token_provided})
-
-        if not code_doc:
+        now = _utcnow()
+        replacement = secrets.token_urlsafe(64)
+        session = app_sessions.find_one_and_update(
+            {
+                'refresh_token_hash': _refresh_token_hash(refresh_token_provided),
+                'expires_at': {'$gt': now},
+                'revoked_at': {'$exists': False},
+            },
+            {
+                '$set': {
+                    'refresh_token_hash': _refresh_token_hash(replacement),
+                    'last_used_at': now,
+                    'expires_at': now + timedelta(days=APP_SESSION_DAYS),
+                },
+                '$inc': {'rotation_count': 1},
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        if not session:
             raise HTTPException(status_code=401, detail='Invalid refresh token')
-
-        google_id = code_doc.get('google_id')
-
-        jwt_secret = os.getenv('JWT_SECRET')
-        if not jwt_secret:
-            raise HTTPException(status_code=500, detail='JWT_SECRET not configured')
-
-        new_token = pyjwt.encode({
-            'sub': google_id,
-            'exp': datetime.utcnow() + timedelta(minutes=30)
-        }, jwt_secret, algorithm='HS256')
-
-        return {'access_token': new_token}
+        return {
+            'access_token': _issue_access_token(session['google_id'], session['session_id']),
+            'refresh_token': replacement,
+        }
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error refreshing token: {str(e)}")
+    except Exception:
+        logger.exception("Error refreshing app session")
         raise HTTPException(status_code=401, detail='Failed to refresh token')
+
+
+def _revoke_google_access(google_id: str) -> None:
+    doc = users.find_one({'google_id': google_id}, {'token_json': 1}) or {}
+    token_data = doc.get('token_json') or {}
+    if isinstance(token_data, str):
+        try:
+            token_data = json.loads(token_data)
+        except json.JSONDecodeError:
+            token_data = {}
+    token = token_data.get('refresh_token') or token_data.get('token')
+    if token:
+        try:
+            requests.post('https://oauth2.googleapis.com/revoke', params={'token': token}, timeout=10)
+        except requests.RequestException:
+            logger.warning("Google token revocation could not be confirmed")
+
+
+@app.post('/auth/disconnect')
+async def disconnect_google(google_id: str = Depends(verify_token)):
+    _revoke_google_access(google_id)
+    _revoke_app_sessions(google_id)
+    users.update_one({'google_id': google_id}, {'$unset': {'token_json': ''}, '$set': {'updated_at': _utcnow()}})
+    return {'success': True}
+
+
+@app.delete('/account')
+async def delete_account(google_id: str = Depends(verify_token)):
+    _revoke_google_access(google_id)
+    app_sessions.delete_many({'google_id': google_id})
+    comparisons.delete_many({'$or': [{'user1_id': google_id}, {'user2_id': google_id}]})
+    auth_codes.delete_many({'google_id': google_id})
+    users.delete_one({'google_id': google_id})
+    return {'success': True}
 
 
 @app.get("/data/me")
@@ -883,7 +1063,8 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
                 'subscription_genres': cached_data.get('subscription_genres', []),
                 'saved_videos': cached_data.get('saved_videos', []),
                 'music_listened': cached_data.get('music_listened', []),
-                'video_genres': cached_data.get('video_genres', [])
+                'video_genres': cached_data.get('video_genres', []),
+                'playlists': cached_data.get('playlists', []),
             }
         else:
             creds = get_credentials_from_db(google_id)
@@ -907,13 +1088,15 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
             channel_ids = [s['channel_id'] for s in subscriptions] if subscriptions else []
             subscription_genres = await loop.run_in_executor(None, fetch_subscription_genres, youtube, channel_ids)
             music_listened, video_genres = await loop.run_in_executor(None, determine_music_and_genres, youtube, saved_data.get('video_ids', []))
+            playlists = await loop.run_in_executor(None, fetch_playlists, youtube)
 
             user1_data = {
                 'subscriptions': subscriptions,
                 'subscription_genres': subscription_genres,
                 'saved_videos': saved_data.get('saved_videos', []),
                 'music_listened': music_listened,
-                'video_genres': video_genres
+                'video_genres': video_genres,
+                'playlists': playlists,
             }
 
         comparison_id = generate_secure_code()
@@ -989,6 +1172,24 @@ async def join_comparison(comparison_id: str):
         raise HTTPException(status_code=500, detail=f"OAuth setup error: {str(e)}")
 
 
+@app.get("/compare/invite/{comparison_id}")
+async def comparison_invite(comparison_id: str):
+    comparison = comparisons.find_one({'_id': comparison_id})
+    if not comparison:
+        raise HTTPException(status_code=404, detail="Comparison link not found or expired")
+    if comparison.get('expires_at') and comparison['expires_at'] < _utcnow():
+        raise HTTPException(status_code=410, detail="Comparison link has expired")
+    if comparison.get('status') in ('ready', 'completed'):
+        raise HTTPException(status_code=410, detail="This invitation has already been used")
+    host = users.find_one({'google_id': comparison.get('user1_id')}, {'profile': 1}) or {}
+    return {
+        'comparison_id': comparison_id,
+        'status': comparison.get('status', 'pending'),
+        'expires_at': comparison.get('expires_at'),
+        'host': host.get('profile', {}),
+    }
+
+
 @app.get("/compare/run/{comparison_id}")
 async def get_comparison(comparison_id: str, refresh: bool = False, google_id: str = Depends(verify_token)):
     """Get comparison results. Run comparison if not already completed."""
@@ -1006,29 +1207,38 @@ async def get_comparison(comparison_id: str, refresh: bool = False, google_id: s
     user2_cached, user2_last_synced, user2_source, user2_profile = get_user_cached_data_for_compare(user2_id)
 
     viewer_is_user1 = google_id == user1_id
-    meta = {
-        'viewer': {
+    viewer = {
             'last_synced_at': user1_last_synced if viewer_is_user1 else user2_last_synced,
             'data_source': user1_source if viewer_is_user1 else user2_source,
-            'profile': user1_profile if viewer_is_user1 else user2_profile
-        },
-        'other': {
+            'profile': user1_profile if viewer_is_user1 else user2_profile,
+            'data': user1_cached if viewer_is_user1 else user2_cached,
+        }
+    other = {
             'last_synced_at': user2_last_synced if viewer_is_user1 else user1_last_synced,
             'data_source': user2_source if viewer_is_user1 else user1_source,
-            'profile': user2_profile if viewer_is_user1 else user1_profile
+            'profile': user2_profile if viewer_is_user1 else user1_profile,
+            'data': user2_cached if viewer_is_user1 else user1_cached,
         }
+    meta = {'viewer': viewer, 'other': other}
+    frontend = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip('/')
+    envelope = {
+        'status': comparison.get('status', 'pending'),
+        'role': 'host' if viewer_is_user1 else 'guest',
+        'invite_url': f"{frontend}/compare/join/{comparison_id}" if viewer_is_user1 else None,
+        'expires_at': comparison.get('expires_at'),
+        'participants': {'viewer': viewer, 'other': other},
+        'meta': meta,
     }
 
     status = comparison.get('status')
 
     if status == 'completed' and comparison.get('results') and not refresh:
-        return {'results': comparison.get('results'), 'meta': meta}
+        return {**envelope, 'status': 'completed', 'results': comparison.get('results')}
 
     if status not in ['ready', 'completed']:
-        return {
+        return {**envelope,
             'status': status or 'pending',
             'message': 'Comparison is not ready. Both users must complete login.',
-            'meta': meta
         }
 
     user1_data = user1_cached or comparison.get('user1_data')
@@ -1051,7 +1261,7 @@ async def get_comparison(comparison_id: str, refresh: bool = False, google_id: s
             }
         )
 
-        return {'results': results, 'meta': meta}
+        return {**envelope, 'status': 'completed', 'results': results}
     except Exception as e:
         logger.exception("Error running comparison")
         raise HTTPException(status_code=500, detail=f"Failed to run comparison: {str(e)}")

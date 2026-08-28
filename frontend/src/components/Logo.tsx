@@ -1,54 +1,33 @@
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
   className?: string;
   size?: number | string;
+  title?: string;
 }
 
-export const Logo = ({ className = "", size = 32 }: LogoProps) => {
-  const [imgError, setImgError] = useState(false);
-
-  // Use logo.svg
-  const logoPath = "/logo.svg";
-
-  const handleError = () => {
-    setImgError(true);
-  };
-
-  // Convert size to CSS value
-  const sizeStyle = typeof size === 'number' ? `${size}px` : size;
-
-  if (imgError) {
-    // Fallback to YouTube icon if logo not found
-    return (
-      <svg
-        className={className}
-        width={sizeStyle}
-        height={sizeStyle}
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-      </svg>
-    );
-  }
-
+export const Logo = ({ className, size = 36, title = "Blend" }: LogoProps) => {
+  const dimension = typeof size === "number" ? `${size}px` : size;
   return (
-    <img
-      src={logoPath}
-      alt="YouTube Blend"
-      className={cn("", className)}
-      onError={handleError}
-      style={{ 
-        width: sizeStyle,
-        height: "auto",
-        objectFit: "contain",
-        maxWidth: "100%",
-        display: "block"
-      }}
-      loading="eager"
-    />
+    <svg
+      className={cn("blend-mark", className)}
+      width={dimension}
+      height={dimension}
+      viewBox="0 0 48 48"
+      role="img"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      <rect width="48" height="48" rx="15" fill="#171713" />
+      <path
+        d="M23.5 9.5c-8.1 0-14 5.9-14 14.5s5.9 14.5 14 14.5v-8.1c-3.6 0-6-2.6-6-6.4s2.4-6.4 6-6.4V9.5Z"
+        fill="#D8FF6B"
+      />
+      <path
+        d="M24.5 9.5c8.1 0 14 5.9 14 14.5s-5.9 14.5-14 14.5v-8.1c3.6 0 6-2.6 6-6.4s-2.4-6.4-6-6.4V9.5Z"
+        fill="#7A83FF"
+      />
+      <path d="M20.25 20.5h7.5v7h-7.5z" fill="#FF8066" />
+    </svg>
   );
 };

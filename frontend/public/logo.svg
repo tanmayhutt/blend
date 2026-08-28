@@ -1,6 +1,7 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>YouTube Blend</title>
-  <circle cx="24" cy="32" r="17" fill="#FFFDF8" stroke="#171717" stroke-width="2"/>
-  <circle cx="40" cy="32" r="17" fill="#F0332F" stroke="#171717" stroke-width="2"/>
-  <path d="M27.5 24.2C27.5 22.67 29.15 21.71 30.48 22.47L44.55 30.55C45.89 31.32 45.89 33.25 44.55 34.02L30.48 42.1C29.15 42.86 27.5 41.9 27.5 40.37V24.2Z" fill="#101013"/>
+<svg width="64" height="64" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Blend</title>
+  <rect width="48" height="48" rx="15" fill="#171713"/>
+  <path d="M23.5 9.5c-8.1 0-14 5.9-14 14.5s5.9 14.5 14 14.5v-8.1c-3.6 0-6-2.6-6-6.4s2.4-6.4 6-6.4V9.5Z" fill="#D8FF6B"/>
+  <path d="M24.5 9.5c8.1 0 14 5.9 14 14.5s-5.9 14.5-14 14.5v-8.1c3.6 0 6-2.6 6-6.4s-2.4-6.4-6-6.4V9.5Z" fill="#7A83FF"/>
+  <path d="M20.25 20.5h7.5v7h-7.5z" fill="#FF8066"/>
 </svg>

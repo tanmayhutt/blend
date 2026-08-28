@@ -1,556 +1,276 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Check, Copy, Loader2, RefreshCw, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CompatibilityAvatars } from "@/components/CompatibilityAvatars";
-import { ScoreCard } from "@/components/ScoreCard";
-import { ChannelCard } from "@/components/ChannelCard";
-import { VideoCard } from "@/components/VideoCard";
-import { Badge } from "@/components/ui/badge";
-import { FloatingChannels } from "@/components/FloatingChannels";
-import { MusicShowcase } from "@/components/MusicShowcase";
-import { Youtube, TrendingUp, Music, Video, Home, Loader2, List, RefreshCw } from "lucide-react";
-import { Logo } from "@/components/Logo";
-import { Footer } from "@/components/Footer";
-import { authClient, clearTokens, isAuthenticated } from "@/lib/auth";
-import { useToast } from "@/hooks/use-toast";
-import { formatRelativeTime } from "@/lib/utils";
+import { BlendHeader } from "@/components/BlendHeader";
+import { PairSignal } from "@/components/PairSignal";
+import { TasteStrip } from "@/components/TasteStrip";
+import { authClient, isAuthenticated } from "@/lib/auth";
+import type { ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
 
-const DataGrid = ({
-  viewerData,
-  otherData,
-  viewerLabel,
-  otherLabel,
-  renderItem,
-  emptyIcon: EmptyIcon,
-  emptyText
-}: any) => {
-  if (!viewerData?.length && !otherData?.length) {
-    return (
-      <Card className="border-border bg-card p-12 text-center shadow-none">
-        <EmptyIcon className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-        <p className="text-sm font-bold text-muted-foreground">{emptyText}</p>
-      </Card>
-    );
-  }
+const chapters = ["Signal", "Shared", "Trade", "Shape", "Keep"] as const;
 
-  return (
-    <div className="space-y-8">
-      {viewerData?.length > 0 && (
-        <div>
-          <h3 className="mb-4 text-xl font-extrabold tracking-[-.025em] text-foreground">{viewerLabel} <span className="text-muted-foreground">{viewerData.length}</span></h3>
-          <div className="content-grid">
-            {viewerData.map(renderItem)}
-          </div>
-        </div>
-      )}
-      {otherData?.length > 0 && (
-        <div>
-          <h3 className="mb-4 text-xl font-extrabold tracking-[-.025em] text-foreground">{otherLabel} <span className="text-muted-foreground">{otherData.length}</span></h3>
-          <div className="content-grid">
-            {otherData.map(renderItem)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+const scoreStory = (score: number) => {
+  if (score >= 72) return { title: "Same frequency", copy: "A lot of the same creators and saved finds already live on both sides." };
+  if (score >= 45) return { title: "A useful overlap", copy: "You share enough common ground, with plenty left to introduce to each other." };
+  if (score >= 20) return { title: "Different, with a bridge", copy: "The overlap is selective. The recommendations are where this Blend gets interesting." };
+  return { title: "Two different worlds", copy: "Very little matched exactly, which gives both of you a strong list of things to trade." };
+};
+
+const normalise = (raw: ComparisonResponse): ComparisonResponse => {
+  if (raw.status) return raw;
+  return { ...raw, status: raw.results ? "completed" : "pending" };
+};
+
+const uniqueByTitle = <T extends { title: string }>(items: T[], excluded: T[] = []) => {
+  const excludedTitles = new Set(excluded.map((item) => item.title.trim().toLowerCase()));
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const title = item.title.trim().toLowerCase();
+    if (!title || excludedTitles.has(title) || seen.has(title)) return false;
+    seen.add(title);
+    return true;
+  });
 };
 
 const CompareFinalise = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
+  const reduceMotion = useReducedMotion();
+  const inviteFromNavigation = (location.state as { inviteUrl?: string } | null)?.inviteUrl;
+  const [comparison, setComparison] = useState<ComparisonResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comparisonData, setComparisonData] = useState<any>(null);
-  const [comparisonMeta, setComparisonMeta] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [comparisonStatus, setComparisonStatus] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [chapter, setChapter] = useState(0);
+  const [copied, setCopied] = useState(false);
 
-  const comparisonLink = id ? `${window.location.origin}/compare/join/${id}` : "";
-
-  const runComparison = async (forceRefresh = false) => {
+  const loadComparison = useCallback(async (manual = false) => {
     if (!id) return;
-    if (!forceRefresh) {
-      setLoading(true);
-    }
-
+    if (manual) setRefreshing(true);
     try {
-      const url = forceRefresh ? `/compare/run/${id}?refresh=1` : `/compare/run/${id}`;
-      const response = await authClient.get(url);
-      if (response.data?.results) {
-        setComparisonData(response.data.results);
-        setComparisonStatus("completed");
-        setStatusMessage(null);
-        
-      } else if (response.data?.status) {
-        setComparisonData(null);
-        setComparisonStatus(response.data.status);
-        setStatusMessage(response.data.message || null);
-      }
-      setComparisonMeta(response.data.meta);
+      const response = await authClient.get<ComparisonResponse>(`/compare/run/${id}`);
+      setComparison(normalise(response.data));
       setError(null);
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      if (detail && detail.includes("Comparison is not ready")) {
-        setComparisonData(null);
-        setComparisonStatus("pending");
-        setStatusMessage(detail);
-        setError(null);
-      } else {
-        setError(detail || "Failed to load comparison results");
-        setComparisonStatus("error");
-        toast({
-          title: "Error",
-          description: "Could not load comparison results",
-          variant: "destructive",
-        });
-      }
+    } catch (requestError: unknown) {
+      const status = (requestError as { response?: { status?: number } }).response?.status;
+      const detail = (requestError as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      if (status === 401) navigate("/", { replace: true });
+      else setError(detail || "Blend could not open this comparison.");
     } finally {
-      if (!forceRefresh) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleRefreshMyData = async () => {
-    setRefreshing(true);
-    try {
-      await authClient.post("/data/sync");
-      await runComparison(true);
-      toast({
-        title: "Data refreshed",
-        description: "Your comparison results are updated.",
-      });
-    } catch (err: any) {
-      toast({
-        title: "Refresh failed",
-        description: err.response?.data?.detail || "Could not refresh your data",
-        variant: "destructive",
-      });
-    } finally {
+      setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const handleCopyLink = () => {
-    if (!comparisonLink) return;
-    navigator.clipboard.writeText(comparisonLink);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
-    // Check authentication first
     if (!isAuthenticated()) {
-      setError("Please log in to view comparison results");
-      setLoading(false);
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to continue",
-        variant: "destructive",
-      });
-      navigate("/");
+      navigate("/", { replace: true });
       return;
     }
+    loadComparison();
+  }, [loadComparison, navigate]);
 
-    if (id) {
-      runComparison();
-    }
-  }, [id, navigate, toast]);
+  useEffect(() => {
+    if (!comparison || comparison.status === "completed") return;
+    const timer = window.setInterval(() => loadComparison(), 4000);
+    return () => window.clearInterval(timer);
+  }, [comparison, loadComparison]);
 
-  const getMatchMessage = (score: number) => {
-    if (score >= 80) return {
-      text: "Same frequency",
-      desc: "Your feeds overlap strongly across channels, saved videos, music, and recurring interests."
-    };
-    if (score >= 60) return {
-      text: "Strong signal",
-      desc: "You share meaningful common ground across several parts of your YouTube taste."
-    };
-    if (score >= 40) return {
-      text: "Interesting overlap",
-      desc: "Your feeds are distinct, but they meet in enough places to create a real shared lane."
-    };
-    if (score >= 20) return {
-      text: "Different lanes",
-      desc: "Your feeds mostly travel in different directions, with a few useful points of connection."
-    };
+  const inviteUrl = comparison?.invite_url || inviteFromNavigation || (id ? `${window.location.origin}/compare/join/${id}` : "");
+
+  const copyInvite = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  const results = comparison?.results;
+  const viewer = comparison?.participants?.viewer || comparison?.meta?.viewer;
+  const other = comparison?.participants?.other || comparison?.meta?.other;
+  const viewerData = viewer?.data;
+  const otherData = other?.data;
+  const score = results?.scores?.overall || 0;
+  const story = scoreStory(score);
+
+  const trade = useMemo(() => {
+    const sharedChannels = results?.common_subscriptions || [];
+    const sharedVideos = results?.common_saved_videos || [];
     return {
-      text: "Opposite feeds",
-      desc: "You have very different viewing habits, which makes this a good map for trading recommendations."
+      channels: uniqueByTitle(otherData?.subscriptions || [], sharedChannels),
+      videos: uniqueByTitle(otherData?.saved_videos || [], sharedVideos),
     };
-  };
+  }, [otherData, results]);
 
-  const handleBackToDashboard = () => {
-    navigate("/dashboard");
-  };
+  const allGenres = useMemo(() => {
+    const shared = results?.common_subscription_genres || [];
+    const viewerGenres = [...(viewerData?.subscription_genres || []), ...(viewerData?.video_genres || [])];
+    const otherGenres = [...(otherData?.subscription_genres || []), ...(otherData?.video_genres || [])];
+    return {
+      shared: Array.from(new Set(shared)),
+      yours: Array.from(new Set(viewerGenres)).filter((item) => !shared.includes(item)).slice(0, 8),
+      theirs: Array.from(new Set(otherGenres)).filter((item) => !shared.includes(item)).slice(0, 8),
+    };
+  }, [otherData, results, viewerData]);
 
-  const handleNewComparison = () => {
-    clearTokens();
-    navigate("/");
+  const shareResult = async () => {
+    const shareData = { title: `Our Blend: ${story.title}`, text: `We made a ${Math.round(score)}% Blend and found our shared corner.`, url: window.location.href };
+    if (navigator.share) {
+      try { await navigator.share(shareData); return; } catch { /* User cancelled or sharing is unavailable. */ }
+    }
+    await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
   if (loading) {
-    return <PageState icon={Loader2} title="Comparing both feeds" text="Reading channels, saved videos, music, and interests." spin />;
+    return <div className="app-state-page"><Loader2 className="state-spinner" aria-hidden="true" /><p className="eyebrow">Opening your Blend</p><h1>Bringing both sides together.</h1></div>;
   }
 
-  if (comparisonStatus === "pending" && !comparisonData) {
+  if (error || !comparison) {
+    return <div className="app-state-page"><p className="eyebrow">Room unavailable</p><h1>This Blend could not be opened.</h1><p>{error}</p><Button asChild><Link to="/dashboard">Create a new room</Link></Button></div>;
+  }
+
+  if (comparison.status !== "completed" || !results) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="app-loading-card space-y-4">
-          <Youtube className="mx-auto h-9 w-9 text-primary" />
-          <h1 className="text-2xl font-bold">Waiting for the other user</h1>
-          <p className="text-muted-foreground">{statusMessage || "They need to finish Google login for this link."}</p>
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <input aria-label="Comparison invite link"
-                type="text"
-                value={comparisonLink}
-                readOnly
-                className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs"
-              />
-              <Button onClick={handleCopyLink} variant="outline" size="sm">
-                {copiedLink ? "Copied" : "Copy"}
-              </Button>
+      <div className="waiting-page">
+        <BlendHeader backTo="/dashboard" backLabel="Session maker" actions={<Link to="/settings" className="header-link">Settings</Link>} />
+        <main className="waiting-layout">
+          <section className="waiting-copy">
+            <p className="eyebrow">Your room is live</p>
+            <h1>One side is ready. Send the other.</h1>
+            <p>Keep this page open. The reveal will appear automatically after the other person accepts the invitation and finishes Google authorisation.</p>
+            <div className="invite-field">
+              <input value={inviteUrl} readOnly aria-label="Private Blend invitation link" />
+              <Button onClick={copyInvite}>{copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy link"}</Button>
             </div>
-            <Button onClick={() => runComparison()} size="sm">
-              Check again
-            </Button>
-          </div>
-        </div>
+            <button type="button" className="text-link" onClick={() => loadComparison(true)} disabled={refreshing}>
+              <RefreshCw className={refreshing ? "animate-spin" : ""} aria-hidden="true" /> Check now
+            </button>
+          </section>
+          <section className="waiting-visual">
+            <span className="live-indicator"><i /> Waiting securely</span>
+            <PairSignal left={viewer?.profile} right={other?.profile} rightLabel="Invited person" />
+            <div className="waiting-note"><strong>Private for two hours</strong><span>The invitation stops working after it is used or expires.</span></div>
+          </section>
+        </main>
       </div>
     );
   }
-
-  if (error || !comparisonData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="app-loading-card space-y-4">
-          <Youtube className="mx-auto h-9 w-9 text-destructive" />
-          <h1 className="text-2xl font-bold">Something Went Wrong</h1>
-          <p className="text-muted-foreground">{error || "Could not load comparison"}</p>
-          <Button onClick={() => navigate("/")} className="mt-4">
-            Go Home
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const matchMessage = comparisonData.scores?.overall
-    ? getMatchMessage(comparisonData.scores.overall)
-    : null;
 
   return (
-    <div className="app-shell min-h-screen bg-background">
-      <a href="#comparison-content" className="skip-link">Skip to comparison</a>
-      <header className="workspace-header sticky top-0 z-50">
-        <div className="mx-auto flex max-w-[92rem] items-center justify-between px-5 py-4 lg:px-10">
-            <button onClick={handleBackToDashboard} className="flex items-center gap-3" aria-label="Back to dashboard">
-              <span className="logo-frame"><Logo size={27} /></span>
-              <span className="hidden text-sm font-extrabold sm:block">Comparison</span>
+    <div className="reveal-page">
+      <BlendHeader backTo="/dashboard" backLabel="Session maker" actions={<span className="reveal-count">{chapter + 1} / {chapters.length}</span>} quiet />
+      <main className="reveal-shell">
+        <nav className="reveal-rail" aria-label="Blend reveal chapters">
+          {chapters.map((label, index) => (
+            <button key={label} type="button" onClick={() => setChapter(index)} aria-current={chapter === index ? "step" : undefined}>
+              <span>{String(index + 1).padStart(2, "0")}</span>{label}
             </button>
-            
-            <div className="flex items-center gap-4">
-              {comparisonMeta && (
-                <div className="hidden items-center gap-3 text-xs text-muted-foreground md:flex">
-                  <div className="flex items-center gap-1.5">
-                    <span className="opacity-60">You:</span>
-                    <span className="font-medium text-foreground/80">{formatRelativeTime(comparisonMeta.viewer?.last_synced_at)}</span>
-                  </div>
-                  <div className="h-3 w-px bg-border"></div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="opacity-60">Them:</span>
-                    <span className="font-medium text-foreground/80">{formatRelativeTime(comparisonMeta.other?.last_synced_at)}</span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleBackToDashboard} className="hidden gap-2 text-sm sm:inline-flex">
-                  <Home className="w-4 h-4" />
-                  Dashboard
-                </Button>
-                <Button onClick={handleNewComparison} className="gap-2 text-sm">
-                  New blend
-                </Button>
-              </div>
-            </div>
+          ))}
+        </nav>
+
+        <div className="reveal-stage" aria-live="polite">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.section
+              key={chapter}
+              className={`reveal-chapter reveal-chapter-${chapter + 1}`}
+              initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -18 }}
+              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {chapter === 0 ? <SignalChapter results={results} viewer={viewer?.profile} other={other?.profile} story={story} /> : null}
+              {chapter === 1 ? <SharedChapter results={results} /> : null}
+              {chapter === 2 ? <TradeChapter trade={trade} otherName={other?.profile?.name?.split(" ")[0] || "They"} /> : null}
+              {chapter === 3 ? <ShapeChapter results={results} genres={allGenres} /> : null}
+              {chapter === 4 ? <KeepChapter results={results} story={story} score={score} onShare={shareResult} copied={copied} /> : null}
+            </motion.section>
+          </AnimatePresence>
         </div>
-      </header>
 
-      <main id="comparison-content" className="mx-auto max-w-[88rem] px-5 py-8 lg:px-10 lg:py-12">
-        <div>
-          {comparisonMeta && (
-            <Card className="mb-6 flex flex-col gap-4 border-white/10 bg-white/[.025] p-4 shadow-none md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <h3 className="text-sm font-medium text-foreground">Using both latest snapshots</h3>
-                <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                  Results use the latest saved profile for each person. Refresh yours if your feed changed recently.
-                </p>
-              </div>
-              <Button onClick={handleRefreshMyData} disabled={refreshing} variant="default" className="gap-2 whitespace-nowrap">
-                {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                {refreshing ? "Refreshing" : "Refresh mine"}
-              </Button>
-            </Card>
-          )}
-          {/* Match Score Card */}
-          {matchMessage && (
-            <section className="workspace-hero mb-8 px-6 py-12 text-center sm:px-10 sm:py-16">
-              <div className="relative z-10 space-y-6">
-                <CompatibilityAvatars
-                  viewerProfile={comparisonMeta?.viewer?.profile}
-                  otherProfile={comparisonMeta?.other?.profile}
-                  score={comparisonData.scores.overall}
-                />
-                <div>
-                  <p className="section-kicker">Your shared signal</p>
-                  <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-medium leading-[.95] tracking-[-.055em] text-foreground sm:text-6xl">
-                    {matchMessage.text}
-                  </h1>
-                  <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                    {matchMessage.desc}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <section className="comparison-story-cards" aria-label="Comparison highlights">
-            <div className="comparison-story-card story-card-lime">
-              <span>Shared obsession</span>
-              <strong>{comparisonData.common_subscriptions?.length || 0}</strong>
-              <p>channels found their way into both feeds</p>
-            </div>
-            <div className="comparison-story-card story-card-pink">
-              <span>Same soundtrack</span>
-              <strong>{comparisonData.common_music_listened?.length || 0}</strong>
-              <p>music picks survived both algorithms</p>
-            </div>
-            <div className="comparison-story-card story-card-yellow">
-              <span>Saved by both</span>
-              <strong>{comparisonData.common_saved_videos?.length || 0}</strong>
-              <p>videos earned a place on both lists</p>
-            </div>
-          </section>
-
-          <div className="mb-6 mt-16"><p className="section-kicker">Move through the room</p><h2 className="mt-3 text-4xl font-medium tracking-[-.055em] sm:text-5xl">What connects you, and what comes next.</h2></div>
-          <Tabs defaultValue="scores" className="w-full">
-            <TabsList className="mb-10 grid h-auto w-full grid-cols-3 gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/[.025] p-1 md:grid-cols-6">
-              <TabsTrigger value="scores" className="flex items-center gap-1 text-xs md:text-sm">
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Scores</span>
-              </TabsTrigger>
-              <TabsTrigger value="common" className="flex items-center gap-1 text-xs md:text-sm">
-                <Music className="w-4 h-4" />
-                <span className="hidden sm:inline">Common</span>
-              </TabsTrigger>
-              <TabsTrigger value="subscriptions" className="flex items-center gap-1 text-xs md:text-sm">
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Channels</span>
-              </TabsTrigger>
-              <TabsTrigger value="videos" className="flex items-center gap-1 text-xs md:text-sm">
-                <Video className="w-4 h-4" />
-                <span className="hidden sm:inline">Videos</span>
-              </TabsTrigger>
-              <TabsTrigger value="music" className="flex items-center gap-1 text-xs md:text-sm">
-                <Music className="w-4 h-4" />
-                <span className="hidden sm:inline">Music</span>
-              </TabsTrigger>
-              <TabsTrigger value="genres" className="flex items-center gap-1 text-xs md:text-sm">
-                <List className="w-4 h-4" />
-                <span className="hidden sm:inline">Genres</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="scores" className="space-y-6">
-              <div>
-                <h2 className="mb-2 text-4xl font-medium tracking-[-.06em] text-foreground">How the signal adds up</h2>
-                <p className="mb-4 text-sm text-muted-foreground">The overall score, unpacked without making it feel like homework.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(comparisonData.scores).map(([key, value]: [string, any]) => (
-                  <ScoreCard key={key} label={key} score={value} />
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="common" className="space-y-8">
-              <div className="mb-6">
-                <h2 className="mb-2 text-4xl font-medium tracking-[-.06em] text-foreground">The shared obsession</h2>
-                <p className="text-muted-foreground">The exact part of YouTube where both of your universes keep meeting.</p>
-              </div>
-
-              {(comparisonData.common_subscriptions?.length > 0 ||
-                comparisonData.common_saved_videos?.length > 0 ||
-                comparisonData.common_music_listened?.length > 0) ? (
-                <div className="space-y-8">
-                  {/* Emphasize Common Music */}
-                  {comparisonData.common_music_listened && comparisonData.common_music_listened.length > 0 && (
-                    <MusicShowcase musicTracks={comparisonData.common_music_listened} />
-                  )}
-
-                  {/* Common Floating Channels */}
-                  {comparisonData.common_subscriptions && comparisonData.common_subscriptions.length > 0 && (
-                    <FloatingChannels channels={comparisonData.common_subscriptions} title="Common Favorite Channels" />
-                  )}
-
-                  {/* Common Videos */}
-                  {comparisonData.common_saved_videos && comparisonData.common_saved_videos.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Videos You Both Saved</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {comparisonData.common_saved_videos.map((video: any, index: number) => (
-                          <VideoCard key={index} title={video.title} thumbnailUrl={video.thumbnail_url} videoId={video.video_id} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Card className="p-12 text-center">
-                  <Music className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-2xl font-bold mb-2">No Common Content Yet</p>
-                  <p className="text-muted-foreground text-sm">
-                    This is your chance to introduce each other to amazing new content
-                  </p>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="subscriptions" className="space-y-6">
-              <div>
-                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both channel lists</h2>
-                <p className="mb-4 text-sm text-muted-foreground">See the creators shaping each feed.</p>
-              </div>
-              <DataGrid
-                viewerData={comparisonData.subscriptions}
-                otherData={comparisonData.user_2_subscriptions}
-                viewerLabel="Your Subscriptions"
-                otherLabel="Their Subscriptions"
-                emptyIcon={TrendingUp}
-                emptyText="No subscription data available"
-                renderItem={(sub: any, index: number) => <ChannelCard key={index} title={sub.title} logoUrl={sub.logo_url} channelId={sub.channel_id} />}
-              />
-            </TabsContent>
-
-            <TabsContent value="videos" className="space-y-6">
-              <div>
-                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both saved lists</h2>
-                <p className="mb-4 text-sm text-muted-foreground">The videos each of you chose to keep.</p>
-              </div>
-              <DataGrid
-                viewerData={comparisonData.saved_videos}
-                otherData={comparisonData.user_2_saved_videos}
-                viewerLabel="Your Saved Videos"
-                otherLabel="Their Saved Videos"
-                emptyIcon={Video}
-                emptyText="No saved videos available"
-                renderItem={(video: any, index: number) => <VideoCard key={index} title={video.title} thumbnailUrl={video.thumbnail_url} videoId={video.video_id} />}
-              />
-            </TabsContent>
-
-            <TabsContent value="music" className="space-y-6">
-              <div>
-                <h2 className="mb-2 text-3xl font-extrabold tracking-[-.04em] text-foreground">Both music profiles</h2>
-                <p className="mb-4 text-sm text-muted-foreground">The tracks on each side of the comparison.</p>
-              </div>
-              <DataGrid
-                viewerData={comparisonData.music_listened}
-                otherData={comparisonData.user_2_music_listened}
-                viewerLabel="Your Music"
-                otherLabel="Their Music"
-                emptyIcon={Music}
-                emptyText="No music data available"
-                renderItem={(music: any, index: number) => <VideoCard key={index} title={music.title} thumbnailUrl={music.thumbnail_url} videoId={music.video_id} />}
-              />
-            </TabsContent>
-
-            <TabsContent value="genres" className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Your Interests</h2>
-                <p className="text-sm text-muted-foreground mb-4">The genres and categories that define your YouTube personality and taste.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {comparisonData.subscription_genres?.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Your Channel Interests</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set(comparisonData.subscription_genres)).map((genre: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="capitalize">
-                          {genre.replace(/_/g, " ")}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {comparisonData.user_2_subscription_genres?.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Their Channel Interests</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set(comparisonData.user_2_subscription_genres)).map((genre: string, index: number) => (
-                        <Badge key={index} variant="outline" className="capitalize">
-                          {genre.replace(/_/g, " ")}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {(comparisonData.video_genres?.length > 0 || comparisonData.user_2_video_genres?.length > 0) && (
-                <div className="mt-6 pt-6 border-t">
-                  <h2 className="text-xl font-bold text-foreground mb-6">Video Content Interests</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {comparisonData.video_genres?.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Your Video Interests</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {Array.from(new Set(comparisonData.video_genres)).map((genre: string, index: number) => (
-                            <Badge key={index} variant="secondary" className="capitalize">
-                              {genre.replace(/_/g, " ")}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {comparisonData.user_2_video_genres?.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Their Video Interests</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {Array.from(new Set(comparisonData.user_2_video_genres)).map((genre: string, index: number) => (
-                            <Badge key={index} variant="outline" className="capitalize">
-                              {genre.replace(/_/g, " ")}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+        <div className="reveal-controls">
+          <Button variant="ghost" onClick={() => setChapter((current) => Math.max(0, current - 1))} disabled={chapter === 0}><ArrowLeft />Back</Button>
+          {chapter < chapters.length - 1 ? <Button onClick={() => setChapter((current) => Math.min(chapters.length - 1, current + 1))}>Next chapter<ArrowRight /></Button> : <Button onClick={() => navigate("/dashboard")}>Make another Blend<ArrowRight /></Button>}
         </div>
       </main>
-      <Footer />
     </div>
   );
 };
 
-const PageState = ({ icon: Icon, title, text, spin = false }: { icon: typeof Loader2; title: string; text: string; spin?: boolean }) => (
-  <div className="flex min-h-screen items-center justify-center bg-background px-4">
-    <div className="app-loading-card">
-      <Icon className={`mx-auto h-8 w-8 text-primary ${spin ? "animate-spin" : ""}`} />
-      <h1 className="mt-5 text-2xl font-extrabold">{title}</h1>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+const SignalChapter = ({ results, viewer, other, story }: { results: ComparisonResults; viewer?: { name?: string; picture?: string }; other?: { name?: string; picture?: string }; story: { title: string; copy: string } }) => (
+  <>
+    <p className="eyebrow">The shared signal</p>
+    <h1>{story.title}</h1>
+    <p className="chapter-lead">{story.copy}</p>
+    <PairSignal left={viewer} right={other} score={results.scores.overall} />
+    <div className="signal-caption"><strong>{Math.round(results.scores.overall)}%</strong><span>A Blend-calculated similarity based on exact overlap. This is not a YouTube or Google metric.</span></div>
+  </>
+);
+
+const SharedChapter = ({ results }: { results: ComparisonResults }) => (
+  <>
+    <p className="eyebrow">The exact matches</p>
+    <h1>The things that reached both of you.</h1>
+    <div className="shared-ledger">
+      <span><strong>{results.common_subscriptions.length}</strong>shared channels</span>
+      <span><strong>{results.common_saved_videos.length}</strong>shared saved videos</span>
+      <span><strong>{results.common_music_listened.length}</strong>shared music finds</span>
     </div>
-  </div>
+    <div className="chapter-strips">
+      <TasteStrip label="Shared channels" items={results.common_subscriptions} empty="No exact shared channels were found." />
+      <TasteStrip label="Shared saved videos" items={results.common_saved_videos} empty="No exact shared saved videos were found." limit={4} />
+    </div>
+  </>
+);
+
+const TradeChapter = ({ trade, otherName }: { trade: { channels: TasteData["subscriptions"]; videos: TasteData["saved_videos"] }; otherName: string }) => (
+  <>
+    <p className="eyebrow">Borrow from their side</p>
+    <h1>Start with what {otherName.toLowerCase()} brought.</h1>
+    <p className="chapter-lead">These are not algorithmic predictions. They are real items from the other person’s authorised snapshot that did not match yours exactly.</p>
+    <div className="chapter-strips trade-strips">
+      <TasteStrip label="Channels to explore" items={trade.channels} empty="There are no distinct channels available to recommend." limit={5} />
+      <TasteStrip label="Videos to explore" items={trade.videos} empty="There are no distinct saved videos available to recommend." limit={5} />
+    </div>
+  </>
+);
+
+const ShapeChapter = ({ results, genres }: { results: ComparisonResults; genres: { shared: string[]; yours: string[]; theirs: string[] } }) => (
+  <>
+    <p className="eyebrow">The broad shape</p>
+    <h1>Same corners. Different paths in.</h1>
+    <p className="chapter-lead">These labels are generated by Blend from YouTube metadata. They are descriptive hints, not identities or YouTube-provided audience categories.</p>
+    <div className="genre-lines">
+      <GenreLine label="Shared" items={genres.shared} tone="shared" />
+      <GenreLine label="Mostly yours" items={genres.yours} tone="viewer" />
+      <GenreLine label="Mostly theirs" items={genres.theirs} tone="other" />
+    </div>
+    <div className="score-footnotes">
+      {Object.entries(results.scores).filter(([key]) => key !== "overall").map(([key, value]) => <span key={key}><strong>{Math.round(value || 0)}%</strong>{key.replaceAll("_", " ")}</span>)}
+    </div>
+  </>
+);
+
+const GenreLine = ({ label, items, tone }: { label: string; items: string[]; tone: string }) => (
+  <div className={`genre-line genre-line-${tone}`}><strong>{label}</strong><div>{items.length ? items.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>) : <span>No distinct labels</span>}</div></div>
+);
+
+const KeepChapter = ({ results, story, score, onShare, copied }: { results: ComparisonResults; story: { title: string; copy: string }; score: number; onShare: () => void; copied: boolean }) => (
+  <>
+    <p className="eyebrow">Your final cut</p>
+    <div className="keep-card">
+      <span>Blend for two</span>
+      <Sparkles aria-hidden="true" />
+      <strong>{story.title}</strong>
+      <p>{Math.round(score)}% Blend · {results.common_subscriptions.length} shared channels · {results.common_saved_videos.length} shared saves</p>
+      <small>Calculated by Blend from data both people authorised. Not a YouTube or Google metric.</small>
+    </div>
+    <div className="keep-actions"><Button size="lg" onClick={onShare}>{copied ? <Check /> : <Share2 />}{copied ? "Link copied" : "Share this Blend"}</Button><p>{story.copy}</p></div>
+  </>
 );
 
 export default CompareFinalise;

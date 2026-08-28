@@ -14,24 +14,16 @@ const AuthComplete = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("AuthComplete mounted, URL:", window.location.href);
-    console.log("API_BASE:", API_BASE);
-
     const code = searchParams.get("code");
     const next = searchParams.get("next");
 
-    console.log("Code from URL:", code ? "Present" : "Missing");
-    console.log("Next param:", next);
-
     if (!code) {
-      console.error("Missing authorization code");
       setError("Missing authorization code");
       setLoading(false);
       return;
     }
 
     if (!API_BASE) {
-      console.error("VITE_API_URL is not set");
       setError("API URL not configured. Please check environment variables.");
       setLoading(false);
       return;
@@ -39,23 +31,16 @@ const AuthComplete = () => {
 
     const exchangeCode = async () => {
       try {
-        console.log("Exchanging code for token...");
         const response = await axios.post(`${API_BASE}/auth/exchange`, { code });
-        console.log("Token exchange successful");
-        const { access_token, user_id } = response.data;
+        const { access_token, refresh_token } = response.data;
+        if (!access_token || !refresh_token) throw new Error("The session response was incomplete");
+        saveTokens({ access_token, refresh_token });
 
-        // Save tokens (using user_id as a pseudo refresh token for now)
-        saveTokens({ access_token, refresh_token: user_id });
-        console.log("Tokens saved to localStorage");
-
-        // Redirect to next or dashboard
         const redirectPath = next || "/dashboard";
-        console.log("Redirecting to:", redirectPath);
         navigate(redirectPath, { replace: true });
-      } catch (err: any) {
-        console.error("Token exchange failed:", err);
-        console.error("Error details:", err.response?.data);
-        setError(err.response?.data?.detail || err.message || "Authentication failed. Please try again.");
+      } catch (err: unknown) {
+        const failure = err as { response?: { data?: { detail?: string } }; message?: string };
+        setError(failure.response?.data?.detail || failure.message || "Authentication failed. Please try again.");
         setLoading(false);
       }
     };
@@ -81,8 +66,8 @@ const AuthComplete = () => {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="app-loading-card">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <h1 className="mt-5 text-xl font-extrabold">Opening your watchroom</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Completing sign-in.</p>
+          <h1 className="mt-5 text-xl font-extrabold">Preparing your side of the Blend</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Completing secure sign-in.</p>
         </div>
       </div>
     );
