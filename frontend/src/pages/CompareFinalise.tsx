@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { BlendHeader } from "@/components/BlendHeader";
 import { PairSignal } from "@/components/PairSignal";
 import { TasteStrip } from "@/components/TasteStrip";
+import { TasteProfileCard } from "@/components/TasteProfileCard";
 import { authClient, isAuthenticated } from "@/lib/auth";
-import type { ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
+import type { ComparisonParticipant, ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
 
-const chapters = ["Signal", "Shared", "Trade", "Shape", "Keep"] as const;
+const chapters = ["Meet", "Signal", "Shared", "Swap", "Shelves", "Shape", "Keep"] as const;
 
 const scoreStory = (score: number) => {
   if (score >= 72) return { title: "Same frequency", copy: "A lot of the same creators and saved finds already live on both sides." };
@@ -143,6 +144,11 @@ const CompareFinalise = () => {
             <p className="eyebrow">Your room is live</p>
             <h1>One side is ready. Send the other.</h1>
             <p>Keep this page open. The reveal will appear automatically after the other person accepts the invitation and finishes Google authorisation.</p>
+            <ol className="waiting-steps" aria-label="Comparison progress">
+              <li className="complete"><span>1</span><div><strong>Your profile is ready</strong><small>The snapshot is safely attached to this room.</small></div></li>
+              <li className="active"><span>2</span><div><strong>Your person connects</strong><small>They review the sharing notice and add their side.</small></div></li>
+              <li><span>3</span><div><strong>The reveal unlocks</strong><small>Both of you can explore every chapter.</small></div></li>
+            </ol>
             <div className="invite-field">
               <input value={inviteUrl} readOnly aria-label="Private Blend invitation link" />
               <Button onClick={copyInvite}>{copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy link"}</Button>
@@ -183,11 +189,13 @@ const CompareFinalise = () => {
               exit={reduceMotion ? undefined : { opacity: 0, y: -18 }}
               transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             >
-              {chapter === 0 ? <SignalChapter results={results} viewer={viewer?.profile} other={other?.profile} story={story} /> : null}
-              {chapter === 1 ? <SharedChapter results={results} /> : null}
-              {chapter === 2 ? <TradeChapter trade={trade} otherName={other?.profile?.name?.split(" ")[0] || "They"} /> : null}
-              {chapter === 3 ? <ShapeChapter results={results} genres={allGenres} /> : null}
-              {chapter === 4 ? <KeepChapter results={results} story={story} score={score} onShare={shareResult} copied={copied} /> : null}
+              {chapter === 0 ? <MeetChapter viewer={viewer} other={other} /> : null}
+              {chapter === 1 ? <SignalChapter results={results} viewer={viewer?.profile} other={other?.profile} story={story} /> : null}
+              {chapter === 2 ? <SharedChapter results={results} /> : null}
+              {chapter === 3 ? <TradeChapter trade={trade} otherName={other?.profile?.name?.split(" ")[0] || "They"} /> : null}
+              {chapter === 4 ? <ShelvesChapter viewer={viewer} other={other} /> : null}
+              {chapter === 5 ? <ShapeChapter results={results} genres={allGenres} /> : null}
+              {chapter === 6 ? <KeepChapter results={results} story={story} score={score} onShare={shareResult} copied={copied} /> : null}
             </motion.section>
           </AnimatePresence>
         </div>
@@ -200,6 +208,18 @@ const CompareFinalise = () => {
     </div>
   );
 };
+
+const MeetChapter = ({ viewer, other }: { viewer?: ComparisonParticipant; other?: ComparisonParticipant }) => (
+  <>
+    <p className="eyebrow">First, meet both sides</p>
+    <h1>Two accounts. Two different ways of keeping YouTube.</h1>
+    <p className="chapter-lead">These cards introduce each authorised snapshot before Blend turns them into a score.</p>
+    <div className="meet-profiles">
+      <TasteProfileCard profile={viewer?.profile} data={viewer?.data} label="Your side" tone="lime" compact />
+      <TasteProfileCard profile={other?.profile} data={other?.data} label="Their side" tone="violet" compact />
+    </div>
+  </>
+);
 
 const SignalChapter = ({ results, viewer, other, story }: { results: ComparisonResults; viewer?: { name?: string; picture?: string }; other?: { name?: string; picture?: string }; story: { title: string; copy: string } }) => (
   <>
@@ -223,6 +243,7 @@ const SharedChapter = ({ results }: { results: ComparisonResults }) => (
     <div className="chapter-strips">
       <TasteStrip label="Shared channels" items={results.common_subscriptions} empty="No exact shared channels were found." />
       <TasteStrip label="Shared saved videos" items={results.common_saved_videos} empty="No exact shared saved videos were found." limit={4} />
+      <TasteStrip label="Shared music" items={results.common_music_listened} empty="No exact shared music was found." limit={4} />
     </div>
   </>
 );
@@ -237,6 +258,31 @@ const TradeChapter = ({ trade, otherName }: { trade: { channels: TasteData["subs
       <TasteStrip label="Videos to explore" items={trade.videos} empty="There are no distinct saved videos available to recommend." limit={5} />
     </div>
   </>
+);
+
+const ShelvesChapter = ({ viewer, other }: { viewer?: ComparisonParticipant; other?: ComparisonParticipant }) => {
+  const viewerName = viewer?.profile?.name?.split(" ")[0] || "You";
+  const otherName = other?.profile?.name?.split(" ")[0] || "Them";
+  return (
+    <>
+      <p className="eyebrow">Open both shelves</p>
+      <h1>See what each person actually brought.</h1>
+      <p className="chapter-lead">A side-by-side look at representative channels, saved videos, music, and playlists. Items link back to YouTube.</p>
+      <div className="account-shelves">
+        <AccountShelf name={viewerName} data={viewer?.data} tone="lime" />
+        <AccountShelf name={otherName} data={other?.data} tone="violet" />
+      </div>
+    </>
+  );
+};
+
+const AccountShelf = ({ name, data, tone }: { name: string; data?: TasteData; tone: "lime" | "violet" }) => (
+  <section className={`account-shelf account-shelf-${tone}`}>
+    <header><span>{name}'s shelf</span><strong>{(data?.subscriptions.length || 0) + (data?.saved_videos.length || 0) + (data?.music_listened.length || 0) + (data?.playlists.length || 0)} visible picks</strong></header>
+    <div><small>Channels</small><TasteStrip label={`${name}'s channels`} items={data?.subscriptions || []} empty="No channels returned." limit={4} /></div>
+    <div><small>Saved videos</small><TasteStrip label={`${name}'s saved videos`} items={data?.saved_videos || []} empty="No saved videos returned." limit={4} /></div>
+    <div><small>Music and playlists</small><TasteStrip label={`${name}'s music and playlists`} items={[...(data?.music_listened || []), ...(data?.playlists || [])]} empty="No music or playlists returned." limit={4} /></div>
+  </section>
 );
 
 const ShapeChapter = ({ results, genres }: { results: ComparisonResults; genres: { shared: string[]; yours: string[]; theirs: string[] } }) => (
