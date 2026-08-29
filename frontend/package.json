@@ -1,5 +1,5 @@
 {
-  "name": "youtube-blend-frontend",
+  "name": "blend-frontend",
   "description": "Compare YouTube taste with friends - React + TypeScript frontend",
   "private": true,
   "version": "1.0.0",

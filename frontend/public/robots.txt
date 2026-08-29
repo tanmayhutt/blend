@@ -16,4 +16,4 @@ Disallow: /dashboard
 Disallow: /auth/
 Disallow: /compare/
 
-Sitemap: https://youtube-blend.tanmaytiwari.me/sitemap.xml
+Sitemap: https://blend.tanmaytiwari.me/sitemap.xml

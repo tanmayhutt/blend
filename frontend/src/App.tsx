@@ -51,7 +51,7 @@ const MetaController = () => {
     robots.content = meta.index ? "index, follow" : "noindex, nofollow";
 
     const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-    if (canonical && meta.index) canonical.href = `https://youtube-blend.tanmaytiwari.me${location.pathname}`;
+    if (canonical && meta.index) canonical.href = `https://blend.tanmaytiwari.me${location.pathname}`;
   }, [location.pathname]);
 
   return null;

@@ -303,7 +303,7 @@ def get_credentials_from_db(google_id: str) -> Optional[Credentials]:
 
 @app.get("/")
 async def root():
-    return {"message": "YouTube Blend API is LIVE"}
+    return {"message": "Blend API is live"}
 
 def detect_item_changes(new_item: dict, old_item: dict) -> dict:
     """Detect what fields changed between old and new item."""
