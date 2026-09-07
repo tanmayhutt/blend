@@ -19,7 +19,7 @@ The product and repository are named **Blend**. YouTube is the data source and s
 - React, TypeScript, Vite, Tailwind CSS, and Framer Motion
 - FastAPI and MongoDB
 - Google OAuth 2.0 and YouTube Data API v3
-- Docker deployment behind Caddy; Vercel configuration retained for rollback
+- Docker deployment behind Caddy
 
 ## Self-hosted deployment
 
@@ -39,13 +39,12 @@ curl -fsS http://127.0.0.1:5060/api/health
 
 Append `deploy/Caddyfile.blend` to the host Caddy configuration only after
 backing up and validating it. Never replace the shared configuration or remove
-other sites. Point the `blend` DNS A record to `15.206.247.203`, replacing its
-Vercel CNAME. Caddy obtains HTTPS after DNS resolves to this server.
+other sites. Point the `blend` DNS A record to `15.206.247.203`. Caddy obtains
+HTTPS after DNS resolves to this server.
 
 The Google callback remains `https://blend.tanmaytiwari.me/api/auth/callback`.
 Git pushes alone do not redeploy this server. Upload reviewed source updates
-without environment files, then rebuild with Compose. Keep the Vercel deployment
-available until the public HTTPS and signed-in flows pass after DNS cutover.
+without environment files, then rebuild with Compose.
 
 ## Local development
 

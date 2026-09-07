@@ -12,7 +12,6 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home blend
 COPY backend/ ./backend/
-COPY api/ ./api/
 COPY deploy/server.py ./server.py
 COPY --from=frontend /build/dist ./static/
 USER blend

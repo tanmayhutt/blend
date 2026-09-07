@@ -94,7 +94,7 @@ const Privacy = () => {
           <section>
             <h2>5. Service providers</h2>
             <p>
-              Blend uses Google OAuth and YouTube API Services to authenticate accounts and retrieve the data described above. It also uses Vercel to host the application and MongoDB Atlas to store application data. These providers process information as needed to deliver their services.
+              Blend uses Google OAuth and YouTube API Services to authenticate accounts and retrieve the data described above. It also uses cloud hosting infrastructure to host the application and MongoDB Atlas to store application data. These providers process information as needed to deliver their services.
             </p>
             <p>
               Your use of Google and YouTube is also governed by the <ExternalTextLink href="https://policies.google.com/privacy">Google Privacy Policy</ExternalTextLink> and the <ExternalTextLink href="https://www.youtube.com/t/terms">YouTube Terms of Service</ExternalTextLink>.

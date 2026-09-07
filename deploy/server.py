@@ -1,11 +1,19 @@
-"""Self-hosted entry point, retaining Vercel's /api routing contract."""
+"""Self-hosted entry point serving FastAPI under /api and the static frontend."""
 
 from pathlib import Path
+import sys
 
+from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.index import app
+# Add backend directory to Python path so internal imports work
+sys.path.insert(0, str(Path(__file__).resolve().parent / "backend"))
+
+from main import app as backend_app
+
+app = FastAPI()
+app.mount("/api", backend_app)
 
 STATIC = Path(__file__).resolve().parent / "static"
 app.mount("/assets", StaticFiles(directory=STATIC / "assets"), name="assets")
