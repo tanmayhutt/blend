@@ -1,6 +1,7 @@
 name: blend
 services:
   app:
+    image: ${BLEND_IMAGE:-blend-app}
     build: .
     restart: unless-stopped
     env_file: .env.production

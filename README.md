@@ -43,8 +43,7 @@ other sites. Point the `blend` DNS A record to `15.206.247.203`. Caddy obtains
 HTTPS after DNS resolves to this server.
 
 The Google callback remains `https://blend.tanmaytiwari.me/api/auth/callback`.
-Git pushes alone do not redeploy this server. Upload reviewed source updates
-without environment files, then rebuild with Compose.
+Pushes to `main` run the automated **Deploy to Ubuntu** GitHub Actions workflow using a restricted SSH deploy key.
 
 ## Local development
 

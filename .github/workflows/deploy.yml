@@ -1,0 +1,34 @@
+name: Deploy to Ubuntu
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: blend-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://blend.tanmaytiwari.me
+    steps:
+      - name: Deploy exact main revision
+        env:
+          DEPLOY_KEY: ${{ secrets.BLEND_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.BLEND_KNOWN_HOSTS }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/blend
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/blend ~/.ssh/known_hosts
+          trap 'rm -f ~/.ssh/blend' EXIT
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -i ~/.ssh/blend ubuntu@15.206.247.203 "deploy $REVISION"
+      - name: Verify public HTTPS endpoint
+        run: curl --fail --silent --show-error --retry 3 --max-time 20 https://blend.tanmaytiwari.me/api/health
