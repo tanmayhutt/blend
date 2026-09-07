@@ -1,0 +1,12 @@
+
+# Blend only. Append this block; preserve every existing site.
+blend.tanmaytiwari.me {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:5060
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    }
+}

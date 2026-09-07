@@ -1,0 +1,11 @@
+.git
+.vercel
+**/node_modules
+**/dist
+**/__pycache__
+**/.env*
+**/*.env
+**/*.pem
+**/*.key
+context.md
+.DS_Store

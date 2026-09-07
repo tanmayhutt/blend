@@ -70,3 +70,11 @@ clean_json.py
 *.tmp
 *.temp
 .cache/
+
+# Antigravity IDE / Second Brain Context
+context.md
+implementation_plan.md
+walkthrough.md
+task.md
+.vercel
+.env*

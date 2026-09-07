@@ -19,7 +19,33 @@ The product and repository are named **Blend**. YouTube is the data source and s
 - React, TypeScript, Vite, Tailwind CSS, and Framer Motion
 - FastAPI and MongoDB
 - Google OAuth 2.0 and YouTube Data API v3
-- Vercel deployment
+- Docker deployment behind Caddy; Vercel configuration retained for rollback
+
+## Self-hosted deployment
+
+Blend runs in `/home/ubuntu/tanmay/blend` on the Ubuntu host. Docker publishes
+only `127.0.0.1:5060`; host Caddy provides public HTTPS. MongoDB Atlas remains
+the database, using the existing database name and credentials.
+
+Provide the backend environment values in `.env.production` with mode `600`.
+Never commit this file. Compose fixes the production URLs and disables debug
+and fallback authentication. The frontend uses same-origin `/api` requests.
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl -fsS http://127.0.0.1:5060/api/health
+```
+
+Append `deploy/Caddyfile.blend` to the host Caddy configuration only after
+backing up and validating it. Never replace the shared configuration or remove
+other sites. Point the `blend` DNS A record to `15.206.247.203`, replacing its
+Vercel CNAME. Caddy obtains HTTPS after DNS resolves to this server.
+
+The Google callback remains `https://blend.tanmaytiwari.me/api/auth/callback`.
+Git pushes alone do not redeploy this server. Upload reviewed source updates
+without environment files, then rebuild with Compose. Keep the Vercel deployment
+available until the public HTTPS and signed-in flows pass after DNS cutover.
 
 ## Local development
 
