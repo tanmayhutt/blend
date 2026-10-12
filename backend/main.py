@@ -29,7 +29,6 @@ from services.youtube import (
     fetch_saved_videos,
     determine_music_and_genres,
     fetch_playlists,
-    count_music_watch_times,
     execute_with_retry
 )
 from services.comparison import compare_interests_logic

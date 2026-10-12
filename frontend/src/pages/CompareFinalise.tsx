@@ -212,8 +212,8 @@ const CompareFinalise = () => {
 const MeetChapter = ({ viewer, other }: { viewer?: ComparisonParticipant; other?: ComparisonParticipant }) => (
   <>
     <p className="eyebrow">First, meet both sides</p>
-    <h1>Two accounts. Two different ways of keeping YouTube.</h1>
-    <p className="chapter-lead">These cards introduce each authorised snapshot before Blend turns them into a score.</p>
+    <h1>Two people. Two different ways of keeping YouTube.</h1>
+    <p className="chapter-lead">These cards introduce each person’s authorised snapshot before Blend turns them into a score.</p>
     <div className="meet-profiles">
       <TasteProfileCard profile={viewer?.profile} data={viewer?.data} label="Your side" tone="lime" compact />
       <TasteProfileCard profile={other?.profile} data={other?.data} label="Their side" tone="violet" compact />
