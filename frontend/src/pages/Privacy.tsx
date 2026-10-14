@@ -30,7 +30,7 @@ const Privacy = () => {
       <main className="mx-auto max-w-5xl px-5 py-16 lg:py-24">
         <article className="legal-shell prose max-w-none border-t border-border pt-10">
           <h1>Privacy Policy</h1>
-          <p className="text-muted-foreground">Last updated: August 28, 2026</p>
+          <p className="text-muted-foreground">Last updated: October 14, 2026</p>
 
           <p>
             Blend is a private, two-person comparison experience powered by YouTube API Services. This policy explains which Google and YouTube data Blend accesses, why it is needed, where it is stored, who can see it, and how you can remove it.
@@ -82,12 +82,20 @@ const Privacy = () => {
           </section>
 
           <section>
-            <h2>4. What is shared</h2>
+            <h2>4. Sharing, transfer, and disclosure of Google user data</h2>
             <p>
-              Blend is designed for one comparison between two people. When you create or join a comparison, you agree that the other participant may see the channels, videos, categories, broad interests, and app-created results included in that shared comparison. Both people must connect their own accounts before the comparison is produced.
+              Blend shares, transfers, or discloses Google user data, including data received from YouTube API Services, only with the following parties and only for the purposes described:
+            </p>
+            <ul>
+              <li><strong>The other participant in your comparison.</strong> When you create or join a comparison, the one person in that private room can see the channels, videos, playlists, categories, broad interests, and Blend-generated results included in the shared comparison. This happens only after both people connect their own accounts and agree to share.</li>
+              <li><strong>Service providers that operate Blend.</strong> Blend's cloud hosting provider runs the application, and MongoDB Atlas stores application data. These providers process the data only on Blend's behalf to deliver the service, as described in section 5.</li>
+              <li><strong>Legal requirements.</strong> Blend may disclose data if required by law, regulation, or a valid legal process, or to protect the security of the service and its users.</li>
+            </ul>
+            <p>
+              Blend does not share, transfer, or disclose Google user data to anyone else. Blend does not sell Google user data, does not use or transfer it for advertising, does not use it to train AI or machine-learning models, and does not make it publicly searchable. Humans do not read Google user data except with your consent, for security purposes, or to comply with law.
             </p>
             <p>
-              Invitation links expire after two hours. Only send a link to the person you intend to compare with. Blend does not sell your personal information, use it for advertising, or make your connected account data publicly searchable.
+              Invitation links expire after two hours. Only send a link to the person you intend to compare with.
             </p>
           </section>
 
