@@ -557,14 +557,32 @@ async def login(next: str = None, comparison_id: str = None):
 
     return {"url": auth_url}
 
+def _signin_abort_redirect(state_doc: Optional[dict]) -> RedirectResponse:
+    """Send a user back into the app when Google sign-in did not complete."""
+    frontend = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip('/')
+    comparison_id = (state_doc or {}).get('comparison_id')
+    target = f"/compare/join/{comparison_id}" if comparison_id else "/"
+    return RedirectResponse(url=f"{frontend}{target}", status_code=302)
+
+
 @app.get("/auth/callback")
-async def callback(code: str, state: str):
-    state_doc = auth_states.find_one_and_delete({
-        "state": state,
-        "expires_at": {"$gt": datetime.utcnow()}
-    })
+async def callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    state_doc = None
+    if state:
+        state_doc = auth_states.find_one_and_delete({
+            "state": state,
+            "expires_at": {"$gt": datetime.utcnow()}
+        })
+
+    if error or not code:
+        # The user cancelled on Google's screen or Google returned no code.
+        if error:
+            logger.info("Google sign-in not completed: %s", error)
+        return _signin_abort_redirect(state_doc)
+
     if not state_doc:
-        raise HTTPException(status_code=400, detail="Invalid or expired login state")
+        # Expired or reused login link, for example after pressing Back.
+        return _signin_abort_redirect(None)
 
     redirect_uri = build_redirect_uri()
 
