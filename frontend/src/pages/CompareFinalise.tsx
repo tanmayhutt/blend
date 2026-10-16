@@ -9,6 +9,37 @@ import { TasteStrip } from "@/components/TasteStrip";
 import { TasteProfileCard } from "@/components/TasteProfileCard";
 import { authClient, isAuthenticated } from "@/lib/auth";
 import type { ComparisonParticipant, ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
+import { toast } from "sonner";
+
+// Copies text, falling back to a hidden textarea when the async Clipboard API is blocked.
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Permission denied or insecure context. Try the legacy path below.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
+const showManualCopy = (text: string) => {
+  toast("Copy this link", { description: text, duration: 12000 });
+};
 
 const chapters = ["Meet", "Signal", "Shared", "Swap", "Shelves", "Shape", "Keep"] as const;
 
@@ -84,7 +115,10 @@ const CompareFinalise = () => {
 
   const copyInvite = async () => {
     if (!inviteUrl) return;
-    await navigator.clipboard.writeText(inviteUrl);
+    if (!(await copyText(inviteUrl))) {
+      showManualCopy(inviteUrl);
+      return;
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   };
@@ -120,9 +154,20 @@ const CompareFinalise = () => {
   const shareResult = async () => {
     const shareData = { title: `Our Blend: ${story.title}`, text: `We made a ${Math.round(score)}% Blend and found our shared corner.`, url: window.location.href };
     if (navigator.share) {
-      try { await navigator.share(shareData); return; } catch { /* User cancelled or sharing is unavailable. */ }
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (error) {
+        // The user closed the share sheet on purpose, so do nothing.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Otherwise sharing is unavailable here; fall back to copying.
+      }
     }
-    await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+    const shareText = `${shareData.text} ${shareData.url}`;
+    if (!(await copyText(shareText))) {
+      showManualCopy(shareData.url);
+      return;
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   };
