@@ -476,6 +476,23 @@ def cache_user_data(google_id: str, data: dict):
     except Exception as e:
         logger.error(f"Failed to cache user data: {e}")
 
+SNAPSHOT_STALE_HOURS = 24
+
+
+def _snapshot_is_stale(doc: Optional[dict]) -> bool:
+    """True when the stored snapshot is older than the refresh window, or missing its timestamp."""
+    cached_at = (doc or {}).get('cached_at')
+    if not cached_at:
+        return True
+    return (datetime.utcnow() - cached_at).total_seconds() / 3600 >= SNAPSHOT_STALE_HOURS
+
+
+def get_stored_snapshot(google_id: str) -> Optional[dict]:
+    """Return the user's stored snapshot regardless of age, or None if they have never synced."""
+    doc = users.find_one({'google_id': google_id}, {'cached_data': 1})
+    return (doc or {}).get('cached_data')
+
+
 def get_cached_user_data(google_id: str, cache_validity_hours: int = 24):
     """Retrieve cached user data if it's fresh (within cache_validity_hours)."""
     try:
@@ -671,27 +688,32 @@ async def callback(code: Optional[str] = None, state: Optional[str] = None, erro
                         creds = get_credentials_from_db(google_id)
 
                     if creds:
-                        youtube = get_youtube_service(creds)
-                        subscriptions = fetch_subscriptions(youtube)
-                        subscription_genres = fetch_subscription_genres(youtube, [s['channel_id'] for s in subscriptions])
-                        saved_data = fetch_saved_videos(youtube)
-                        music_listened, video_genres = determine_music_and_genres(youtube, saved_data['video_ids'])
-                        playlists = fetch_playlists(youtube)
+                        # A guest who synced within the last day reuses that snapshot.
+                        fresh = get_cached_user_data(google_id, cache_validity_hours=SNAPSHOT_STALE_HOURS)
+                        if fresh:
+                            user2_data = {key: fresh.get(key, []) for key in ('subscriptions', 'subscription_genres', 'saved_videos', 'music_listened', 'video_genres', 'playlists')}
+                        else:
+                            youtube = get_youtube_service(creds)
+                            subscriptions = fetch_subscriptions(youtube)
+                            subscription_genres = fetch_subscription_genres(youtube, [s['channel_id'] for s in subscriptions])
+                            saved_data = fetch_saved_videos(youtube)
+                            music_listened, video_genres = determine_music_and_genres(youtube, saved_data['video_ids'])
+                            playlists = fetch_playlists(youtube)
 
-                        user2_data = {
-                            'subscriptions': subscriptions,
-                            'subscription_genres': subscription_genres,
-                            'saved_videos': saved_data['saved_videos'],
-                            'music_listened': music_listened,
-                            'video_genres': video_genres,
-                            'playlists': playlists,
-                        }
+                            user2_data = {
+                                'subscriptions': subscriptions,
+                                'subscription_genres': subscription_genres,
+                                'saved_videos': saved_data['saved_videos'],
+                                'music_listened': music_listened,
+                                'video_genres': video_genres,
+                                'playlists': playlists,
+                            }
 
-                        cache_user_data(google_id, user2_data)
-                        users.update_one(
-                            {'google_id': google_id},
-                            {'$set': {'last_full_sync': _utcnow()}},
-                        )
+                            cache_user_data(google_id, user2_data)
+                            users.update_one(
+                                {'google_id': google_id},
+                                {'$set': {'last_full_sync': _utcnow()}},
+                            )
 
                         comparisons.update_one(
                             {'_id': comparison_id},
@@ -855,6 +877,7 @@ async def get_my_data(google_id: str = Depends(verify_token)):
                 'video_genres': cached_data.get('video_genres', []),
                 'playlists': cached_data.get('playlists', []),
                 'cached': True,
+                'stale': _snapshot_is_stale(doc),
                 'last_synced_at': doc.get('last_full_sync'),
                 'profile': doc.get('profile', {}),
                 'user_id': google_id
@@ -1072,7 +1095,10 @@ async def sync_user_data(google_id: str = Depends(verify_token)):
 async def generate_comparison_link(google_id: str = Depends(verify_token)):
     """Generate a shareable comparison link for the authenticated user."""
     try:
-        cached_data = get_cached_user_data(google_id, cache_validity_hours=24)
+        # Use the snapshot the host is looking at on the dashboard, whatever its age.
+        # The dashboard refreshes stale snapshots in the background, so the invite
+        # never has to re-download a large library before the room can open.
+        cached_data = get_stored_snapshot(google_id)
 
         if cached_data:
             user1_data = {
@@ -1119,6 +1145,9 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
                 'video_genres': video_genres,
                 'playlists': playlists,
             }
+            # Store the fresh snapshot so the next invite and the dashboard reuse it.
+            cache_user_data(google_id, user1_data)
+            users.update_one({'google_id': google_id}, {'$set': {'last_full_sync': _utcnow()}})
 
         comparison_id = generate_secure_code()
         csrf_token = secrets.token_urlsafe(32)

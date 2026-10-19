@@ -31,6 +31,7 @@ export interface TasteData {
 
 export interface UserData extends TasteData {
   cached?: boolean;
+  stale?: boolean;
   last_synced_at?: string;
   message?: string;
   profile?: Profile;

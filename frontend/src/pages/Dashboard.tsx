@@ -40,7 +40,10 @@ const Dashboard = () => {
     authClient.get<UserData>("/data/me").then(async (response) => {
       if (!active) return;
       setData({ ...emptyTasteData(), ...response.data });
-      if (!response.data.cached) await sync(); else setLoading(false);
+      if (!response.data.cached) { await sync(); return; }
+      setLoading(false);
+      // Show the stored snapshot immediately and refresh an old one quietly in the background.
+      if (response.data.stale) void sync();
     }).catch((requestError: unknown) => {
       if (!active) return;
       const detail = (requestError as { response?: { data?: { detail?: string } } }).response?.data?.detail;
@@ -86,7 +89,7 @@ const Dashboard = () => {
             <p className="eyebrow">Ready for a second side</p>
             <h2>Turn this profile into a shared reveal.</h2>
             <p>Blend creates a private two-hour invitation. Your friend sees exactly what will be shared before connecting.</p>
-            <Button size="lg" onClick={createRoom} disabled={creating || syncing}>{creating ? <Loader2 className="animate-spin" /> : <ArrowRight />}{creating ? "Opening the room" : "Invite one person"}</Button>
+            <Button size="lg" onClick={createRoom} disabled={creating}>{creating ? <Loader2 className="animate-spin" /> : <ArrowRight />}{creating ? "Opening the room" : "Invite one person"}</Button>
             <small><Clock3 aria-hidden="true" /> Link expires after two hours and closes after one person joins.</small>
             {error ? <p className="form-error" role="alert">{error}</p> : null}
           </aside>
