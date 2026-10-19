@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Copy, Loader2, RefreshCw, Share2, Sparkles } from "lucide-react";
@@ -10,6 +10,12 @@ import { TasteProfileCard } from "@/components/TasteProfileCard";
 import { authClient, isAuthenticated } from "@/lib/auth";
 import type { ComparisonParticipant, ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
 import { toast } from "sonner";
+import { CountUp } from "@/components/reveal/CountUp";
+import { OverlapVenn } from "@/components/reveal/OverlapVenn";
+import { ScoreBreakdown } from "@/components/reveal/ScoreBreakdown";
+import { SwipeRow } from "@/components/reveal/SwipeRow";
+import { ThumbWall } from "@/components/reveal/ThumbWall";
+import { VersusBoard } from "@/components/reveal/VersusBoard";
 
 // Copies text, falling back to a hidden textarea when the async Clipboard API is blocked.
 const copyText = async (text: string): Promise<boolean> => {
@@ -41,7 +47,9 @@ const showManualCopy = (text: string) => {
   toast("Copy this link", { description: text, duration: 12000 });
 };
 
-const chapters = ["Meet", "Signal", "Shared", "Swap", "Shelves", "Shape", "Keep"] as const;
+const chapters = ["Meet", "Versus", "Signal", "Shared", "Swap", "Shelves", "Shape", "Keep"] as const;
+
+const firstName = (participant?: ComparisonParticipant, fallback = "You") => participant?.profile?.name?.split(" ")[0] || fallback;
 
 const scoreStory = (score: number) => {
   if (score >= 72) return { title: "Same frequency", copy: "A lot of the same creators and saved finds already live on both sides." };
@@ -77,6 +85,15 @@ const CompareFinalise = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chapter, setChapter] = useState(0);
+  const activeChapterRef = useRef<HTMLButtonElement>(null);
+  const firstChapterRender = useRef(true);
+
+  // Start each chapter at the top and keep its tab visible in the scrolling rail on small screens.
+  useEffect(() => {
+    if (firstChapterRender.current) { firstChapterRender.current = false; return; }
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    activeChapterRef.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: reduceMotion ? "auto" : "smooth" });
+  }, [chapter, reduceMotion]);
   const [copied, setCopied] = useState(false);
 
   const loadComparison = useCallback(async (manual = false) => {
@@ -141,7 +158,7 @@ const CompareFinalise = () => {
   }, [otherData, results]);
 
   const allGenres = useMemo(() => {
-    const shared = results?.common_subscription_genres || [];
+    const shared = [...(results?.common_subscription_genres || []), ...(results?.common_video_genres || [])];
     const viewerGenres = [...(viewerData?.subscription_genres || []), ...(viewerData?.video_genres || [])];
     const otherGenres = [...(otherData?.subscription_genres || []), ...(otherData?.video_genres || [])];
     return {
@@ -217,8 +234,9 @@ const CompareFinalise = () => {
       <BlendHeader backTo="/dashboard" backLabel="Session maker" actions={<span className="reveal-count">{chapter + 1} / {chapters.length}</span>} quiet />
       <main className="reveal-shell">
         <nav className="reveal-rail" aria-label="Blend reveal chapters">
+          <span className="reveal-progress" aria-hidden="true"><i style={{ width: `${((chapter + 1) / chapters.length) * 100}%` }} /></span>
           {chapters.map((label, index) => (
-            <button key={label} type="button" onClick={() => setChapter(index)} aria-current={chapter === index ? "step" : undefined}>
+            <button key={label} ref={chapter === index ? activeChapterRef : undefined} type="button" onClick={() => setChapter(index)} aria-current={chapter === index ? "step" : undefined}>
               <span>{String(index + 1).padStart(2, "0")}</span>{label}
             </button>
           ))}
@@ -235,12 +253,13 @@ const CompareFinalise = () => {
               transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             >
               {chapter === 0 ? <MeetChapter viewer={viewer} other={other} /> : null}
-              {chapter === 1 ? <SignalChapter results={results} viewer={viewer?.profile} other={other?.profile} story={story} /> : null}
-              {chapter === 2 ? <SharedChapter results={results} /> : null}
-              {chapter === 3 ? <TradeChapter trade={trade} otherName={other?.profile?.name?.split(" ")[0] || "They"} /> : null}
-              {chapter === 4 ? <ShelvesChapter viewer={viewer} other={other} /> : null}
-              {chapter === 5 ? <ShapeChapter results={results} genres={allGenres} /> : null}
-              {chapter === 6 ? <KeepChapter results={results} story={story} score={score} onShare={shareResult} copied={copied} /> : null}
+              {chapter === 1 ? <VersusChapter viewer={viewer} other={other} /> : null}
+              {chapter === 2 ? <SignalChapter results={results} viewer={viewer?.profile} other={other?.profile} story={story} /> : null}
+              {chapter === 3 ? <SharedChapter results={results} viewer={viewer} other={other} /> : null}
+              {chapter === 4 ? <TradeChapter trade={trade} otherName={firstName(other, "They")} /> : null}
+              {chapter === 5 ? <ShelvesChapter viewer={viewer} other={other} /> : null}
+              {chapter === 6 ? <ShapeChapter results={results} genres={allGenres} /> : null}
+              {chapter === 7 ? <KeepChapter results={results} story={story} score={score} viewer={viewer} other={other} onShare={shareResult} copied={copied} /> : null}
             </motion.section>
           </AnimatePresence>
         </div>
@@ -266,42 +285,56 @@ const MeetChapter = ({ viewer, other }: { viewer?: ComparisonParticipant; other?
   </>
 );
 
+const VersusChapter = ({ viewer, other }: { viewer?: ComparisonParticipant; other?: ComparisonParticipant }) => (
+  <>
+    <p className="eyebrow">Head to head</p>
+    <h1>Who keeps what.</h1>
+    <p className="chapter-lead">A side-by-side count from both authorised snapshots. Bigger is not better here, just different.</p>
+    <VersusBoard viewerName={firstName(viewer)} otherName={firstName(other, "Them")} viewer={viewer?.data} other={other?.data} />
+  </>
+);
+
 const SignalChapter = ({ results, viewer, other, story }: { results: ComparisonResults; viewer?: { name?: string; picture?: string }; other?: { name?: string; picture?: string }; story: { title: string; copy: string } }) => (
   <>
     <p className="eyebrow">The shared signal</p>
     <h1>{story.title}</h1>
     <p className="chapter-lead">{story.copy}</p>
     <PairSignal left={viewer} right={other} score={results.scores.overall} />
-    <div className="signal-caption"><strong>{Math.round(results.scores.overall)}%</strong><span>A Blend-calculated similarity based on exact overlap. This is not a YouTube or Google metric.</span></div>
+    <div className="signal-caption"><strong><CountUp value={results.scores.overall} suffix="%" /></strong><span>A Blend-calculated similarity based on exact overlap. This is not a YouTube or Google metric.</span></div>
+    <ScoreBreakdown scores={results.scores} />
   </>
 );
 
-const SharedChapter = ({ results }: { results: ComparisonResults }) => (
-  <>
-    <p className="eyebrow">The exact matches</p>
-    <h1>The things that reached both of you.</h1>
-    <div className="shared-ledger">
-      <span><strong>{results.common_subscriptions.length}</strong>shared channels</span>
-      <span><strong>{results.common_saved_videos.length}</strong>shared saved videos</span>
-      <span><strong>{results.common_music_listened.length}</strong>shared music finds</span>
-    </div>
-    <div className="chapter-strips">
-      <TasteStrip label="Shared channels" items={results.common_subscriptions} empty="No exact shared channels were found." />
-      <TasteStrip label="Shared saved videos" items={results.common_saved_videos} empty="No exact shared saved videos were found." limit={4} />
-      <TasteStrip label="Shared music" items={results.common_music_listened} empty="No exact shared music was found." limit={4} />
-    </div>
-  </>
-);
+const SharedChapter = ({ results, viewer, other }: { results: ComparisonResults; viewer?: ComparisonParticipant; other?: ComparisonParticipant }) => {
+  const sets = [
+    { key: "channels", label: "Channels", left: viewer?.data?.subscriptions.length || 0, right: other?.data?.subscriptions.length || 0, shared: results.common_subscriptions.length },
+    { key: "saved", label: "Saved videos", left: viewer?.data?.saved_videos.length || 0, right: other?.data?.saved_videos.length || 0, shared: results.common_saved_videos.length },
+    { key: "music", label: "Music", left: viewer?.data?.music_listened.length || 0, right: other?.data?.music_listened.length || 0, shared: results.common_music_listened.length },
+  ];
+  return (
+    <>
+      <p className="eyebrow">The exact matches</p>
+      <h1>The things that reached both of you.</h1>
+      <OverlapVenn viewerName={firstName(viewer)} otherName={firstName(other, "Them")} sets={sets} />
+      <section className="shared-wall" aria-labelledby="shared-wall-heading">
+        <h2 id="shared-wall-heading">Saved by both of you</h2>
+        <ThumbWall items={results.common_saved_videos} label="Videos both people saved" empty="No exact shared saved videos were found." limit={8} />
+      </section>
+      <div className="chapter-strips">
+        <div><h2 className="strip-heading">Channels you both follow</h2><TasteStrip label="Shared channels" items={results.common_subscriptions} empty="No exact shared channels were found." limit={6} /></div>
+        <div><h2 className="strip-heading">Music you both kept</h2><TasteStrip label="Shared music" items={results.common_music_listened} empty="No exact shared music was found." limit={6} /></div>
+      </div>
+    </>
+  );
+};
 
 const TradeChapter = ({ trade, otherName }: { trade: { channels: TasteData["subscriptions"]; videos: TasteData["saved_videos"] }; otherName: string }) => (
   <>
     <p className="eyebrow">Borrow from their side</p>
-    <h1>Start with what {otherName.toLowerCase()} brought.</h1>
-    <p className="chapter-lead">These are not algorithmic predictions. They are real items from the other person’s authorised snapshot that did not match yours exactly.</p>
-    <div className="chapter-strips trade-strips">
-      <TasteStrip label="Channels to explore" items={trade.channels} empty="There are no distinct channels available to recommend." limit={5} />
-      <TasteStrip label="Videos to explore" items={trade.videos} empty="There are no distinct saved videos available to recommend." limit={5} />
-    </div>
+    <h1>Start with what {otherName} brought.</h1>
+    <p className="chapter-lead">These are not algorithmic predictions. They are real items from the other person’s authorised snapshot that did not match yours exactly. Swipe through.</p>
+    <SwipeRow title="Channels to try" items={trade.channels} empty="There are no distinct channels available to recommend." round />
+    <SwipeRow title="Videos to try" items={trade.videos} empty="There are no distinct saved videos available to recommend." />
   </>
 );
 
@@ -347,21 +380,46 @@ const ShapeChapter = ({ results, genres }: { results: ComparisonResults; genres:
 );
 
 const GenreLine = ({ label, items, tone }: { label: string; items: string[]; tone: string }) => (
-  <div className={`genre-line genre-line-${tone}`}><strong>{label}</strong><div>{items.length ? items.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>) : <span>No distinct labels</span>}</div></div>
+  <div className={`genre-line genre-line-${tone}`}>
+    <header><strong>{label}</strong><small>{items.length} {items.length === 1 ? "label" : "labels"}</small></header>
+    <div className="genre-chips">{items.length ? items.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>) : <em>No distinct labels</em>}</div>
+  </div>
 );
 
-const KeepChapter = ({ results, story, score, onShare, copied }: { results: ComparisonResults; story: { title: string; copy: string }; score: number; onShare: () => void; copied: boolean }) => (
-  <>
-    <p className="eyebrow">Your final cut</p>
-    <div className="keep-card">
-      <span>Blend for two</span>
-      <Sparkles aria-hidden="true" />
-      <strong>{story.title}</strong>
-      <p>{Math.round(score)}% Blend · {results.common_subscriptions.length} shared channels · {results.common_saved_videos.length} shared saves</p>
-      <small>Calculated by Blend from data both people authorised. Not a YouTube or Google metric.</small>
-    </div>
-    <div className="keep-actions"><Button size="lg" onClick={onShare}>{copied ? <Check /> : <Share2 />}{copied ? "Link copied" : "Share this Blend"}</Button><p>{story.copy}</p></div>
-  </>
-);
+const KeepChapter = ({ results, story, score, viewer, other, onShare, copied }: { results: ComparisonResults; story: { title: string; copy: string }; score: number; viewer?: ComparisonParticipant; other?: ComparisonParticipant; onShare: () => void; copied: boolean }) => {
+  const people = [viewer, other];
+  const stats = [
+    { value: results.common_subscriptions.length, label: "shared channels" },
+    { value: results.common_saved_videos.length, label: "shared saves" },
+    { value: results.common_music_listened.length, label: "shared music" },
+  ];
+  return (
+    <>
+      <p className="eyebrow">Your final cut</p>
+      <article className="keep-card">
+        <header className="keep-card-top">
+          <span>Blend for two</span>
+          <div className="keep-faces" aria-label={`${firstName(viewer)} and ${firstName(other, "them")}`}>
+            {people.map((person, index) => person?.profile?.picture
+              ? <img key={index} src={person.profile.picture} alt="" referrerPolicy="no-referrer" />
+              : <span key={index}>{firstName(person, index ? "T" : "Y").slice(0, 1).toUpperCase()}</span>)}
+          </div>
+        </header>
+        <div className="keep-card-score"><strong><CountUp value={score} suffix="%" /></strong><Sparkles aria-hidden="true" /></div>
+        <h2>{story.title}</h2>
+        <ul className="keep-stats">
+          {stats.map((stat) => <li key={stat.label}><strong>{stat.value}</strong><span>{stat.label}</span></li>)}
+        </ul>
+        {results.common_saved_videos.some((item) => item.thumbnail_url) ? (
+          <div className="keep-strip" aria-hidden="true">
+            {results.common_saved_videos.filter((item) => item.thumbnail_url).slice(0, 4).map((item, index) => <img key={`${item.video_id}-${index}`} src={item.thumbnail_url} alt="" loading="lazy" />)}
+          </div>
+        ) : null}
+        <small>Calculated by Blend from data both people authorised. Not a YouTube or Google metric.</small>
+      </article>
+      <div className="keep-actions"><Button size="lg" onClick={onShare}>{copied ? <Check /> : <Share2 />}{copied ? "Link copied" : "Share this Blend"}</Button><p>{story.copy}</p></div>
+    </>
+  );
+};
 
 export default CompareFinalise;

@@ -6,6 +6,8 @@ import { BlendHeader } from "@/components/BlendHeader";
 import { Footer } from "@/components/Footer";
 import { TasteProfileCard } from "@/components/TasteProfileCard";
 import { TasteStrip } from "@/components/TasteStrip";
+import { TasteMix } from "@/components/TasteMix";
+import { ThumbWall } from "@/components/reveal/ThumbWall";
 import { authClient, clearTokens, isAuthenticated } from "@/lib/auth";
 import { emptyTasteData, type UserData } from "@/lib/types";
 
@@ -89,6 +91,16 @@ const Dashboard = () => {
             {error ? <p className="form-error" role="alert">{error}</p> : null}
           </aside>
         </section>
+
+        {data ? (
+          <section className="profile-visuals">
+            <TasteMix data={data} />
+            <section className="recent-saves" aria-labelledby="recent-saves-heading">
+              <header><p className="eyebrow">Your saves wall</p><h2 id="recent-saves-heading">A glance at what you kept.</h2></header>
+              <ThumbWall items={data.saved_videos} label="Your saved videos" empty="No saved videos were returned." limit={8} />
+            </section>
+          </section>
+        ) : null}
 
         <section className="profile-library" aria-labelledby="library-heading">
           <header><div><p className="eyebrow">Inside your snapshot</p><h2 id="library-heading">The actual picks behind the profile.</h2></div><p>Open any item on YouTube. These lists stay private until both people consent to the comparison.</p></header>
