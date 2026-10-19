@@ -683,7 +683,8 @@ async def callback(code: Optional[str] = None, state: Optional[str] = None, erro
         if comparison_id:
             comparison = comparisons.find_one({'_id': comparison_id})
             if not comparison:
-                raise HTTPException(status_code=400, detail="Invalid comparison link")
+                # The room expired and was removed while this person was signing in.
+                return _signin_abort_redirect(state_doc)
 
             if comparison.get('user1_id') and comparison.get('user1_id') != google_id:
                 if not _room_is_open(comparison):
