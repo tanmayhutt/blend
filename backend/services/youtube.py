@@ -23,7 +23,7 @@ def execute_with_retry(request, max_retries=3, backoff_factor=1):
             else:
                 logger.error(f"  Failed after {max_retries} attempts: {str(e)}")
                 raise
-        except Exception as e:
+        except Exception:
             raise
 
 def sanitize_string(s: str) -> str:
@@ -132,7 +132,7 @@ def fetch_saved_videos(youtube):
                 logger.info(f"  ✅ Page {page_num}: {batch_size} items (total: {liked_count})")
                 logger.info(f"  Response keys: {list(response.keys())}")
                 if batch_size == 0:
-                    logger.info(f"  ⚠️ Empty page! No more items.")
+                    logger.info("  ⚠️ Empty page! No more items.")
 
                 for sub in response.get('items', []):
                     title = sanitize_string(sub['snippet']['title'])
@@ -146,9 +146,9 @@ def fetch_saved_videos(youtube):
 
                 request = youtube.videos().list_next(request, response)
                 if request:
-                    logger.info(f"  ⏳ Next page token found, continuing...")
+                    logger.info("  ⏳ Next page token found, continuing...")
                 else:
-                    logger.info(f"  ✅ No more pages")
+                    logger.info("  ✅ No more pages")
 
             logger.info(f"✅ Method 1 Complete: {len(saved_videos)} videos total, {len(video_ids)} IDs")
         except Exception as e:

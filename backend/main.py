@@ -29,7 +29,6 @@ from services.youtube import (
     fetch_saved_videos,
     determine_music_and_genres,
     fetch_playlists,
-    execute_with_retry
 )
 from services.comparison import compare_interests_logic
 
@@ -537,7 +536,8 @@ def get_user_cached_data_for_compare(google_id: str):
         return None, None, "comparison_snapshot", None
 
 @app.get("/auth/login")
-async def login(next: str = None, comparison_id: str = None):
+async def login(next: str = None):
+    # Guests join rooms only through /compare/join, which validates the room first.
     redirect_uri = build_redirect_uri()
 
     try:
@@ -569,10 +569,22 @@ async def login(next: str = None, comparison_id: str = None):
         "created_at": datetime.utcnow(),
         "expires_at": datetime.utcnow() + timedelta(minutes=5),
         "next": next,
-        "comparison_id": comparison_id
+        "comparison_id": None
     })
 
     return {"url": auth_url}
+
+def _room_is_open(comparison: Optional[dict]) -> bool:
+    """A room accepts a guest only while pending, unexpired, and without a second participant."""
+    if not comparison:
+        return False
+    expires_at = comparison.get('expires_at')
+    return (
+        comparison.get('status') == 'pending'
+        and not comparison.get('user2_id')
+        and bool(expires_at) and expires_at > datetime.utcnow()
+    )
+
 
 def _signin_abort_redirect(state_doc: Optional[dict]) -> RedirectResponse:
     """Send a user back into the app when Google sign-in did not complete."""
@@ -674,6 +686,9 @@ async def callback(code: Optional[str] = None, state: Optional[str] = None, erro
                 raise HTTPException(status_code=400, detail="Invalid comparison link")
 
             if comparison.get('user1_id') and comparison.get('user1_id') != google_id:
+                if not _room_is_open(comparison):
+                    # Used, completed, or expired rooms cannot take a new guest.
+                    return _signin_abort_redirect(state_doc)
                 try:
                     creds = get_credentials_from_db(google_id)
                     if not creds:
@@ -715,8 +730,13 @@ async def callback(code: Optional[str] = None, state: Optional[str] = None, erro
                                 {'$set': {'last_full_sync': _utcnow()}},
                             )
 
-                        comparisons.update_one(
-                            {'_id': comparison_id},
+                        claimed = comparisons.update_one(
+                            {
+                                '_id': comparison_id,
+                                'status': 'pending',
+                                'user2_id': {'$exists': False},
+                                'expires_at': {'$gt': datetime.utcnow()},
+                            },
                             {
                                 '$set': {
                                     'user2_id': google_id,
@@ -726,6 +746,9 @@ async def callback(code: Optional[str] = None, state: Optional[str] = None, erro
                                 }
                             }
                         )
+                        if claimed.matched_count == 0:
+                            # Someone else joined first, or the room expired while this guest was signing in.
+                            return _signin_abort_redirect(state_doc)
 
                         auth_code = secrets.token_urlsafe(32)
                         code_doc = {
@@ -987,7 +1010,7 @@ async def sync_user_data(google_id: str = Depends(verify_token)):
             logger.error(f"❌ Error fetching saved videos: {saved_data}")
             saved_data = {'video_ids': [], 'saved_videos': []}
 
-        logger.info(f"✅ Fresh YouTube data fetched:")
+        logger.info("✅ Fresh YouTube data fetched:")
         logger.info(f"   - {len(subscriptions)} subscriptions")
         logger.info(f"   - {len(saved_data.get('saved_videos', []))} saved videos")
 
@@ -1040,13 +1063,13 @@ async def sync_user_data(google_id: str = Depends(verify_token)):
             'playlists': playlists
         }
 
-        logger.info(f"💾 Storing to database (with incremental comparison)...")
+        logger.info("💾 Storing to database (with incremental comparison)...")
         cache_user_data(google_id, fresh_user_data)
 
         sync_time = datetime.utcnow()
         users.update_one({'google_id': google_id}, {'$set': {'last_full_sync': sync_time}})
 
-        logger.info(f"✅ SYNC COMPLETE:")
+        logger.info("✅ SYNC COMPLETE:")
         logger.info(f"   📊 {len(subscriptions)} channels")
         logger.info(f"   🎬 {len(saved_data.get('saved_videos', []))} saved videos")
         logger.info(f"   🎵 {len(music_listened)} music tracks")
@@ -1100,6 +1123,10 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
         # never has to re-download a large library before the room can open.
         cached_data = get_stored_snapshot(google_id)
 
+        # Sharing requires a live Google connection. A disconnected account must reconnect first.
+        if not users.find_one({'google_id': google_id, 'token_json': {'$exists': True}}, {'_id': 1}):
+            raise HTTPException(status_code=401, detail="Reconnect Google to create a new Blend.")
+
         if cached_data:
             user1_data = {
                 'subscriptions': cached_data.get('subscriptions', []),
@@ -1127,6 +1154,7 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
                 return_exceptions=True
             )
 
+            fetch_complete = not isinstance(subscriptions, Exception) and not isinstance(saved_data, Exception)
             if isinstance(subscriptions, Exception):
                 subscriptions = []
             if isinstance(saved_data, Exception):
@@ -1146,8 +1174,10 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
                 'playlists': playlists,
             }
             # Store the fresh snapshot so the next invite and the dashboard reuse it.
-            cache_user_data(google_id, user1_data)
-            users.update_one({'google_id': google_id}, {'$set': {'last_full_sync': _utcnow()}})
+            # A partial download is not cached, so the dashboard still offers a refresh.
+            if fetch_complete:
+                cache_user_data(google_id, user1_data)
+                users.update_one({'google_id': google_id}, {'$set': {'last_full_sync': _utcnow()}})
 
         comparison_id = generate_secure_code()
         csrf_token = secrets.token_urlsafe(32)
@@ -1255,6 +1285,14 @@ async def get_comparison(comparison_id: str, refresh: bool = False, google_id: s
 
     user1_cached, user1_last_synced, user1_source, user1_profile = get_user_cached_data_for_compare(user1_id)
     user2_cached, user2_last_synced, user2_source, user2_profile = get_user_cached_data_for_compare(user2_id)
+
+    # A room is a frozen comparison: use the snapshots attached when it was created and
+    # joined, so the shown data always matches the stored results and a later refresh
+    # never adds data the other person did not see at consent time.
+    if comparison.get('user1_data'):
+        user1_cached, user1_source = comparison['user1_data'], 'room_snapshot'
+    if comparison.get('user2_data'):
+        user2_cached, user2_source = comparison['user2_data'], 'room_snapshot'
 
     viewer_is_user1 = google_id == user1_id
     viewer = {

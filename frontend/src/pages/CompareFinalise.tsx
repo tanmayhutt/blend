@@ -8,8 +8,9 @@ import { PairSignal } from "@/components/PairSignal";
 import { TasteStrip } from "@/components/TasteStrip";
 import { TasteProfileCard } from "@/components/TasteProfileCard";
 import { authClient, isAuthenticated } from "@/lib/auth";
-import type { ComparisonParticipant, ComparisonResponse, ComparisonResults, TasteData } from "@/lib/types";
+import { emptyTasteData, type ComparisonParticipant, type ComparisonResponse, type ComparisonResults, type TasteData } from "@/lib/types";
 import { toast } from "sonner";
+import { cleanLabel } from "@/lib/taste";
 import { CountUp } from "@/components/reveal/CountUp";
 import { OverlapVenn } from "@/components/reveal/OverlapVenn";
 import { ScoreBreakdown } from "@/components/reveal/ScoreBreakdown";
@@ -27,6 +28,7 @@ const copyText = async (text: string): Promise<boolean> => {
   } catch {
     // Permission denied or insecure context. Try the legacy path below.
   }
+  const previousFocus = document.activeElement as HTMLElement | null;
   try {
     const area = document.createElement("textarea");
     area.value = text;
@@ -37,8 +39,10 @@ const copyText = async (text: string): Promise<boolean> => {
     area.select();
     const ok = document.execCommand("copy");
     document.body.removeChild(area);
+    previousFocus?.focus();
     return ok;
   } catch {
+    previousFocus?.focus();
     return false;
   }
 };
@@ -48,6 +52,10 @@ const showManualCopy = (text: string) => {
 };
 
 const chapters = ["Meet", "Versus", "Signal", "Shared", "Swap", "Shelves", "Shape", "Keep"] as const;
+
+// Older snapshots can miss a list (for example playlists). Fill every list so no chapter reads undefined.
+const withFullData = (participant?: ComparisonParticipant): ComparisonParticipant | undefined =>
+  participant ? { ...participant, data: participant.data ? { ...emptyTasteData(), ...participant.data } : undefined } : undefined;
 
 const firstName = (participant?: ComparisonParticipant, fallback = "You") => participant?.profile?.name?.split(" ")[0] || fallback;
 
@@ -91,8 +99,13 @@ const CompareFinalise = () => {
   // Start each chapter at the top and keep its tab visible in the scrolling rail on small screens.
   useEffect(() => {
     if (firstChapterRender.current) { firstChapterRender.current = false; return; }
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-    activeChapterRef.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    const behavior = reduceMotion ? "auto" : "smooth";
+    window.scrollTo({ top: 0, behavior });
+    const tab = activeChapterRef.current;
+    const rail = tab?.parentElement;
+    if (tab && rail && rail.scrollWidth > rail.clientWidth) {
+      rail.scrollTo({ left: tab.offsetLeft - (rail.clientWidth - tab.offsetWidth) / 2, behavior });
+    }
   }, [chapter, reduceMotion]);
   const [copied, setCopied] = useState(false);
 
@@ -141,8 +154,8 @@ const CompareFinalise = () => {
   };
 
   const results = comparison?.results;
-  const viewer = comparison?.participants?.viewer || comparison?.meta?.viewer;
-  const other = comparison?.participants?.other || comparison?.meta?.other;
+  const viewer = useMemo(() => withFullData(comparison?.participants?.viewer || comparison?.meta?.viewer), [comparison]);
+  const other = useMemo(() => withFullData(comparison?.participants?.other || comparison?.meta?.other), [comparison]);
   const viewerData = viewer?.data;
   const otherData = other?.data;
   const score = results?.scores?.overall || 0;
@@ -374,7 +387,7 @@ const ShapeChapter = ({ results, genres }: { results: ComparisonResults; genres:
       <GenreLine label="Mostly theirs" items={genres.theirs} tone="other" />
     </div>
     <div className="score-footnotes">
-      {Object.entries(results.scores).filter(([key]) => key !== "overall").map(([key, value]) => <span key={key}><strong>{Math.round(value || 0)}%</strong>{key.replaceAll("_", " ")}</span>)}
+      {Object.entries(results.scores).filter(([key]) => key !== "overall").map(([key, value]) => <span key={key}><strong>{Math.round(value || 0)}%</strong>{cleanLabel(key)}</span>)}
     </div>
   </>
 );
@@ -382,7 +395,7 @@ const ShapeChapter = ({ results, genres }: { results: ComparisonResults; genres:
 const GenreLine = ({ label, items, tone }: { label: string; items: string[]; tone: string }) => (
   <div className={`genre-line genre-line-${tone}`}>
     <header><strong>{label}</strong><small>{items.length} {items.length === 1 ? "label" : "labels"}</small></header>
-    <div className="genre-chips">{items.length ? items.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>) : <em>No distinct labels</em>}</div>
+    <div className="genre-chips">{items.length ? items.map((item) => <span key={item}>{cleanLabel(item)}</span>) : <em>No distinct labels</em>}</div>
   </div>
 );
 

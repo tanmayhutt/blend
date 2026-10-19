@@ -30,8 +30,11 @@ const layout = (left: number, right: number, shared: number) => {
   // Circles always touch a little so the shared zone stays visible even at zero.
   const depth = 18 + overlap * (Math.min(rL, rR) * 1.1);
   const distance = rL + rR - depth;
-  const cx = W / 2;
-  return { rL, rR, xL: cx - distance / 2, xR: cx + distance / 2, cy: H / 2 };
+  // Shrink everything together if the pair would be wider than the drawing.
+  const fit = Math.min(1, (W - 8) / (distance + rL + rR), (H - 8) / (2 * Math.max(rL, rR)));
+  const cx = W / 2 + ((rL - rR) / 2) * fit;
+  const d = distance * fit;
+  return { rL: rL * fit, rR: rR * fit, xL: cx - d / 2, xR: cx + d / 2, cy: H / 2 };
 };
 
 export const OverlapVenn = ({ viewerName, otherName, sets }: OverlapVennProps) => {

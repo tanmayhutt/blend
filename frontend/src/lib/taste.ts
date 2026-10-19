@@ -1,6 +1,6 @@
 import type { TasteData } from "@/lib/types";
 
-export const cleanLabel = (value: string) => value.replaceAll("_", " ").replaceAll("%20", " ");
+export const cleanLabel = (value: string) => value.replace(/_/g, " ").replace(/%20/g, " ");
 
 export const uniqueLabels = (data?: TasteData, limit = 6) => {
   if (!data) return [];

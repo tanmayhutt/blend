@@ -30,5 +30,10 @@ export const CountUp = ({ value, duration = 900, suffix = "" }: CountUpProps) =>
     return () => cancelAnimationFrame(frame);
   }, [target, duration, reduceMotion]);
 
-  return <span className="count-up" aria-label={`${target}${suffix}`}>{shown}{suffix}</span>;
+  return (
+    <span className="count-up">
+      <span aria-hidden="true">{shown}{suffix}</span>
+      <span className="sr-only">{target}{suffix}</span>
+    </span>
+  );
 };

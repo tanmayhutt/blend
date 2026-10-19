@@ -26,8 +26,8 @@ const verdict = (left: number, right: number, leftName: string, rightName: strin
 export const VersusBoard = ({ viewerName, otherName, viewer, other }: VersusBoardProps) => {
   const reduceMotion = useReducedMotion();
   const rows = categories.map((category) => {
-    const left = viewer?.[category.key].length || 0;
-    const right = other?.[category.key].length || 0;
+    const left = viewer?.[category.key]?.length || 0;
+    const right = other?.[category.key]?.length || 0;
     const total = left + right;
     return { ...category, left, right, leftShare: total ? left / total : 0.5, total };
   });
