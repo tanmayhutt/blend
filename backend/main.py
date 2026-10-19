@@ -1088,12 +1088,16 @@ async def generate_comparison_link(google_id: str = Depends(verify_token)):
             if not creds:
                 raise HTTPException(status_code=401, detail="Invalid or expired credentials")
 
+            # Each thread needs its own client. The underlying httplib2 connection
+            # is not thread-safe, and sharing it corrupted the SSL stream and
+            # crashed the worker with a segfault on large accounts.
             youtube = get_youtube_service(creds)
+            saved_videos_client = get_youtube_service(creds)
 
             loop = asyncio.get_event_loop()
             subscriptions, saved_data = await asyncio.gather(
                 loop.run_in_executor(None, fetch_subscriptions, youtube),
-                loop.run_in_executor(None, fetch_saved_videos, youtube),
+                loop.run_in_executor(None, fetch_saved_videos, saved_videos_client),
                 return_exceptions=True
             )
 
